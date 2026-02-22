@@ -294,7 +294,7 @@
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
     <div class="login-box">
-        <h1 style="letter-spacing:.02em"><span style="color:var(--text-dim);font-weight:400">artefacto:</span>text2edit</h1>
+        <h1 style="letter-spacing:.02em"><span style="color:var(--text-dim);font-weight:400">artefacto </span>text2edit</h1>
         <input type="text" id="login-user" placeholder="Usuario" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
         <input type="password" id="login-pass" placeholder="Contrase&#241;a" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
         <button onclick="doLogin()">Entrar</button>
@@ -304,8 +304,7 @@
 
 <!-- TOPBAR -->
 <div class="topbar">
-    <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-right:4px" id="user-display"></span>
-    <span class="topbar-logo">artefacto:<span style="color:var(--text)">text2edit</span></span>
+    <span class="topbar-logo"><span style="font-weight:400;color:var(--text-muted)">artefacto</span> <span style="color:var(--text)">text2edit</span></span>
 
     <!-- About (opens modal) -->
     <div class="menu-item">
@@ -350,6 +349,7 @@
         <div class="topbar-sep"></div>
         <button class="btn" id="btn-ai" onclick="toggleAI()" title="Panel AI &#8984;I">&#9733; IA</button>
         <button class="btn" id="btn-theme" onclick="toggleTheme()" title="Modo claro/oscuro">&#127769;</button>
+        <span style="font-size:9px;color:var(--text-muted);font-family:var(--mono)" id="user-display"></span>
         <button class="btn" id="btn-logout" onclick="doLogout()">Salir</button>
     </div>
 </div>
@@ -483,8 +483,9 @@
             </div>
             <div class="ai-config-row" style="margin-top:4px">
                 <select id="ai-model-select" class="ai-input" style="padding:0 4px">
-                    <option value="claude-sonnet-4-20250514">Claude Sonnet</option>
-                    <option value="claude-haiku-235-20241022">Claude Haiku</option>
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                    <option value="claude-haiku-4-5-20241022">Claude Haiku 4.5</option>
+                    <option value="claude-opus-4-20250514">Claude Opus 4</option>
                 </select>
             </div>
             <div class="ai-status" id="ai-status"></div>
@@ -946,7 +947,7 @@ function doMerge(panel) {
     if (sel.length < 2) return;
     const sorted = [...sel].sort((a, b) => a - b);
     for (let i = 1; i < sorted.length; i++) {
-        if (sorted[i] !== sorted[i - 1] + 1) { alert('Selecciona subtitulos consecutivos'); return; }
+        if (sorted[i] !== sorted[i - 1] + 1) { showAlert('Selecciona subtitulos consecutivos'); return; }
     }
     pushHistory();
     const first = arr[sorted[0]];
@@ -1167,7 +1168,7 @@ function createSubtitle() {
         const parts = input.trim().split(':');
         if (parts.length === 2) startTime = parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
         else startTime = parseFloat(parts[0]);
-        if (isNaN(startTime)) { alert('Tiempo invalido'); return; }
+        if (isNaN(startTime)) { showAlert('Tiempo invalido'); return; }
     }
     let endTime = startTime + 3;
     // Find insert position and avoid overlap with next subtitle
@@ -1457,6 +1458,18 @@ function tlGetMetrics() {
     return { w, h, dpr, totalDur, pxPerSec, visibleW };
 }
 
+// Read-only metrics (does NOT resize canvas - safe for hit testing)
+function tlCalcMetrics() {
+    const wrap = document.getElementById('timeline-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const visibleW = rect.width;
+    const h = rect.height;
+    const w = visibleW * tlZoom;
+    const totalDur = edit.reduce((a, s) => a + (s.end - s.start), 0);
+    const pxPerSec = totalDur > 0 ? w / totalDur : 1;
+    return { w, h, totalDur, pxPerSec, visibleW };
+}
+
 function drawTimeline() {
     const wrap = document.getElementById('timeline-wrap');
     if (!tlCanvas || !tlCtx) return;
@@ -1470,9 +1483,11 @@ function drawTimeline() {
     const LBL_W = 28; // track label column width
     const rulerH = 18;
     const trackGap = 2;
-    const v1H = Math.floor((h - rulerH - trackGap * 2) * 0.6);
-    const s1Y = rulerH + trackGap + v1H + trackGap;
-    const s1H = h - s1Y - 1;
+    const totalTrackH = h - rulerH - trackGap * 2;
+    const s1H = Math.floor(totalTrackH * 0.3);
+    const v1H = totalTrackH - s1H;
+    const s1Y = rulerH + trackGap;
+    const v1Y = s1Y + s1H + trackGap;
 
     // Theme colors
     const cs = getComputedStyle(document.documentElement);
@@ -1507,17 +1522,17 @@ function drawTimeline() {
     ctx.strokeStyle = cBorder;
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(LBL_W, rulerH); ctx.lineTo(LBL_W, h); ctx.stroke();
-    // Track separator line
-    ctx.beginPath(); ctx.moveTo(0, s1Y - 1); ctx.lineTo(w, s1Y - 1); ctx.stroke();
+    // Track separator line between S1 and V1
+    ctx.beginPath(); ctx.moveTo(0, v1Y - 1); ctx.lineTo(w, v1Y - 1); ctx.stroke();
 
     ctx.fillStyle = cTextMuted;
     ctx.font = '8px JetBrains Mono, monospace';
     ctx.textBaseline = 'middle';
-    ctx.fillText('V1', 5, rulerH + trackGap + v1H / 2);
     ctx.fillText('S1', 5, s1Y + s1H / 2);
+    ctx.fillText('V1', 5, v1Y + v1H / 2);
 
     // ── V1 Track: Video clips ──
-    const clipY = rulerH + trackGap;
+    const clipY = v1Y;
     const clipH = v1H;
     const trackW = w - LBL_W;
     let cx = LBL_W;
@@ -1654,7 +1669,7 @@ function calcRulerInterval(totalDur, width) {
 
 function tlHitTest(mx, my) {
     if (!edit.length) return null;
-    const { w, h, totalDur } = tlGetMetrics();
+    const { w, h, totalDur } = tlCalcMetrics();
     const LBL_W = 28;
     const rulerH = 18;
     const trackW = w - LBL_W;
@@ -1698,6 +1713,10 @@ function tlMouseDown(e) {
         activePanel = 'edit';
         updateSelUI('edit'); updateMergeBtns();
 
+        // Scroll edit list to this clip
+        const row = document.querySelector(`.e-row[data-ei="${hit.idx}"]`);
+        if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
         // Pause playhead during drag
         if (editPlayActive && editVideo) {
             editVideo.pause();
@@ -1732,7 +1751,7 @@ function tlMouseMove(e) {
         return;
     }
 
-    const { w, pxPerSec } = tlGetMetrics();
+    const { w, pxPerSec } = tlCalcMetrics();
     const dx = mx - tlDrag.startX;
     const dtSec = dx / pxPerSec;
     const clip = edit[tlDrag.idx];
@@ -1941,7 +1960,7 @@ function loadProject(file) {
     r.onload = ev => {
         try {
             const p = JSON.parse(ev.target.result);
-            if (!p.src || !Array.isArray(p.src)) { alert('Archivo .t2e invalido'); return; }
+            if (!p.src || !Array.isArray(p.src)) { showAlert('Archivo .t2e invalido'); return; }
             src = p.src;
             edit = p.edit || [];
             mediaName = p.mediaName || '';
@@ -1971,7 +1990,7 @@ function loadProject(file) {
                 }, 100);
             }
         } catch (ex) {
-            alert('Error al leer proyecto: ' + ex.message);
+            showAlert('Error al leer proyecto: ' + ex.message);
         }
     };
     r.readAsText(file);
@@ -2346,7 +2365,7 @@ function updateAIButtons() {
 // ════════════════════════════════════════════════
 async function callClaude(messages, options = {}) {
     const key = getApiKey();
-    if (!key) { alert('Configura la API Key primer'); return null; }
+    if (!key) { showAlert('Configura la API Key primero'); return null; }
 
     // Separate system prompt from messages (Claude format)
     let systemPrompt = '';
@@ -2391,8 +2410,22 @@ async function callClaude(messages, options = {}) {
 // AI: CORRECTION
 // ════════════════════════════════════════════════
 async function correctSelected() {
-    const indices = srcSel.length > 0 ? [...srcSel].sort((a, b) => a - b) : [];
-    if (!indices.length) { alert('Selecciona subtitols primer'); return; }
+    let indices = [];
+    if (srcSel.length > 0) {
+        indices = [...srcSel].sort((a, b) => a - b);
+    } else if (editSel.length > 0) {
+        // Map edit selection to source indices
+        const srcIdxSet = new Set();
+        editSel.forEach(ei => {
+            const clip = edit[ei];
+            if (clip && clip.sourceId >= 0) {
+                const si = src.findIndex(s => s.id === clip.sourceId);
+                if (si >= 0) srcIdxSet.add(si);
+            }
+        });
+        indices = [...srcIdxSet].sort((a, b) => a - b);
+    }
+    if (!indices.length) { showAlert('Selecciona subtitulos primero (en transcripci\u00f3n o edici\u00f3n)'); return; }
     await runCorrection(indices);
 }
 
@@ -2498,7 +2531,7 @@ async function sendChat() {
     const input = document.getElementById('ai-chat-input');
     const question = input.value.trim();
     if (!question) return;
-    if (!getApiKey()) { alert('Configura la clau API primer'); return; }
+    if (!getApiKey()) { showAlert('Configura la API Key primero'); return; }
     input.value = '';
     appendChatMsg('user', question);
     const loadingId = appendChatMsg('loading', 'Pensant...');
@@ -2568,6 +2601,10 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 function openAboutModal() { closeMenus(); openModal('about-modal'); }
 function triggerMediaSelect() {
     if (pendingMediaInput) pendingMediaInput.click();
+}
+function showAlert(msg) {
+    document.getElementById('alert-modal-body').textContent = msg;
+    openModal('alert-modal');
 }
 // Close modal on overlay click
 document.addEventListener('click', e => {
@@ -2752,7 +2789,7 @@ function checkAutosave() {
             const d = JSON.parse(saved);
             if (d.src && d.src.length > 0) {
                 const ago = Math.round((Date.now() - new Date(time).getTime()) / 60000);
-                if (ago < 60 * 24 && confirm('Se encontr\u00f3 un autosave de hace ' + ago + ' min. \u00bfRestaurar?')) {
+                if (ago < 60 * 24 && window.confirm('Se encontr\u00f3 un autosave de hace ' + ago + ' min. \u00bfRestaurar?')) {
                     src = d.src; edit = d.edit || []; mediaName = d.mediaName || '';
                     mediaDur = d.mediaDur || 0; isVideo = d.isVideo || false;
                     nextSrcId = d.nextSrcId || (src.length ? Math.max(...src.map(s => s.id)) + 1 : 0);
@@ -2786,8 +2823,19 @@ checkAutosave();
             <div class="about-brand">Jorge Caballero</div>
             <p>Jorge Caballero es cineasta, investigador y cofundador de Artefacto Films, con un trabajo orientado al documental expandido y la experimentaci&oacute;n con sistemas algor&iacute;tmicos aplicados al relato. Su trayectoria articula direcci&oacute;n cinematogr&aacute;fica, investigaci&oacute;n acad&eacute;mica y desarrollo tecnol&oacute;gico, con proyectos presentados en festivales y espacios internacionales que examinan la memoria, la violencia institucional, los archivos y las transformaciones perceptivas derivadas de la inteligencia artificial.</p>
             <a href="https://artefactofilms.com/" target="_blank" class="about-link">artefactofilms.com &nearr;</a>
-            <div class="about-version">v0.7 &mdash; MIT License</div>
+            <div class="about-version">v0.8 &mdash; MIT License</div>
         </div>
+    </div>
+</div>
+
+<!-- ALERT MODAL -->
+<div class="modal-overlay" id="alert-modal">
+    <div class="modal-box" style="max-width:400px">
+        <div class="modal-header">
+            <h2>Aviso</h2>
+            <button class="modal-close" onclick="closeModal('alert-modal')">&times;</button>
+        </div>
+        <div class="modal-body" id="alert-modal-body" style="text-align:center;padding:20px 24px 28px"></div>
     </div>
 </div>
 

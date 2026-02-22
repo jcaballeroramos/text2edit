@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>text2edit</title>
+    <title>artefacto:text2edit</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
@@ -25,7 +25,8 @@
         .topbar{height:44px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px}
         .topbar-logo{font-size:13px;font-weight:600;letter-spacing:.08em;color:var(--text-dim)}
         .topbar-sep{width:1px;height:20px;background:var(--border)}
-        .topbar-actions{display:flex;gap:5px;margin-left:auto}
+        .topbar-actions{display:flex;gap:5px;margin-left:auto;align-items:center}
+        .topbar-actions .btn{height:28px;padding:0 10px;font-size:11px}
 
         /* ── BUTTONS ── */
         .btn{height:28px;padding:0 10px;border:1px solid var(--border-light);border-radius:6px;background:var(--surface2);color:var(--text-dim);cursor:pointer;font-size:11px;font-family:var(--sans);font-weight:500;display:inline-flex;align-items:center;gap:4px;transition:all .12s;white-space:nowrap}
@@ -137,7 +138,7 @@
         .drop-indicator{position:absolute;left:0;right:0;height:2px;background:var(--red);z-index:100;pointer-events:none;border-radius:1px;box-shadow:0 0 6px rgba(255,68,68,.4)}
 
         /* ── TIMELINE ── */
-        .timeline-wrap{height:80px;background:var(--bg);border-bottom:1px solid var(--border);position:relative;flex-shrink:0;display:none}
+        .timeline-wrap{height:120px;background:var(--bg);border-bottom:1px solid var(--border);position:relative;flex-shrink:0;display:none;overflow-x:auto;overflow-y:hidden}
         .timeline-wrap.visible{display:block}
         #timeline-canvas{display:block;width:100%;height:100%}
 
@@ -214,7 +215,41 @@
 
         /* ── PANEL DIVIDER ── */
         .panel-divider{width:5px;background:var(--border);cursor:col-resize;flex-shrink:0;transition:background .15s;position:relative;z-index:10}
-        .panel-divider:hover,.panel-divider.active{background:var(--blue)}
+        .panel-divider:hover,.panel-divider.active{background:var(--red)}
+
+        /* ── PANEL TOGGLE ── */
+        .panel-toggle{display:flex;gap:2px;align-items:center}
+        .panel-toggle .pt-btn{width:24px;height:20px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:9px;display:inline-flex;align-items:center;justify-content:center;transition:all .12s;padding:0}
+        .panel-toggle .pt-btn:hover{background:var(--border);color:var(--text)}
+        .panel-toggle .pt-btn.active{background:var(--surface2);color:var(--text);border-color:var(--text-muted)}
+
+        /* ── MODAL ── */
+        .modal-overlay{position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+        .modal-overlay.open{opacity:1;pointer-events:auto}
+        .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:540px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:0}
+        .modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
+        .modal-header h2{font-size:16px;font-weight:600;color:var(--text)}
+        .modal-close{background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:6px;transition:all .12s}
+        .modal-close:hover{background:var(--surface2);color:var(--text)}
+        .modal-body{padding:16px 24px 24px;font-size:12px;line-height:1.7;color:var(--text-dim)}
+        .modal-body p{margin-bottom:12px}
+        .modal-body a{color:var(--blue);text-decoration:none}
+        .modal-body a:hover{text-decoration:underline}
+        .modal-body .about-brand{font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+        .modal-body .about-version{font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+        .modal-body .about-link{display:inline-block;margin-top:8px;padding:6px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text);font-weight:500;transition:all .12s}
+        .modal-body .about-link:hover{background:var(--border);text-decoration:none}
+        .modal-media-prompt{text-align:center;padding:30px 24px}
+        .modal-media-prompt .media-icon{font-size:32px;margin-bottom:12px;color:var(--text-muted)}
+        .modal-media-prompt h3{font-size:14px;color:var(--text);margin-bottom:8px}
+        .modal-media-prompt p{font-size:12px;color:var(--text-dim);margin-bottom:16px}
+        .modal-media-prompt .media-name{font-family:var(--mono);color:var(--red);font-size:11px;background:var(--surface2);padding:4px 10px;border-radius:4px;display:inline-block;margin-bottom:16px}
+        .modal-media-prompt button{height:36px;padding:0 24px;background:var(--accent);color:var(--bg);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:opacity .12s}
+        .modal-media-prompt button:hover{opacity:.85}
+
+        /* ── GAP CLIP ── */
+        .e-row.gap-row{opacity:.5}
+        .e-row.gap-row .txt{font-style:italic;color:var(--text-muted)}
 
         /* ── DROPDOWN MENUS ── */
         .menu-item{position:relative;display:inline-flex}
@@ -259,7 +294,7 @@
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
     <div class="login-box">
-        <h1>text2edit</h1>
+        <h1 style="letter-spacing:.02em"><span style="color:var(--text-dim);font-weight:400">artefacto:</span>text2edit</h1>
         <input type="text" id="login-user" placeholder="Usuario" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
         <input type="password" id="login-pass" placeholder="Contrase&#241;a" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
         <button onclick="doLogin()">Entrar</button>
@@ -269,18 +304,12 @@
 
 <!-- TOPBAR -->
 <div class="topbar">
-    <span class="topbar-logo">text2edit</span>
+    <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-right:4px" id="user-display"></span>
+    <span class="topbar-logo">artefacto:<span style="color:var(--text)">text2edit</span></span>
 
-    <!-- About -->
+    <!-- About (opens modal) -->
     <div class="menu-item">
-        <button class="menu-trigger" onclick="toggleMenu(this)">About</button>
-        <div class="menu-dropdown">
-            <div class="menu-about-info">
-                <strong>text2edit</strong>
-                <p>Browser-based video editor for interview transcriptions. Load a Whisper transcript and media, then select, reorder, trim and edit subtitle clips.</p>
-                <div class="ver">v1.0 &mdash; MIT License</div>
-            </div>
-        </div>
+        <button class="menu-trigger" onclick="openAboutModal()">About</button>
     </div>
 
     <!-- Archivo -->
@@ -313,10 +342,15 @@
     </div>
 
     <div class="topbar-actions">
+        <div class="panel-toggle">
+            <button class="pt-btn" id="pt-left" onclick="setPanelMode('left')" title="Solo transcripci&#243;n">&#9699;</button>
+            <button class="pt-btn active" id="pt-split" onclick="setPanelMode('split')" title="Dividido">&#9646;&#9646;</button>
+            <button class="pt-btn" id="pt-right" onclick="setPanelMode('right')" title="Solo edici&#243;n">&#9698;</button>
+        </div>
+        <div class="topbar-sep"></div>
         <button class="btn" id="btn-ai" onclick="toggleAI()" title="Panel AI &#8984;I">&#9733; IA</button>
-        <button class="btn btn-sm" id="btn-theme" onclick="toggleTheme()" title="Modo claro/oscuro">&#127769;</button>
-        <span style="font-size:10px;color:var(--text-muted);font-family:var(--mono)" id="user-display"></span>
-        <button class="btn btn-sm" id="btn-logout" onclick="doLogout()">Salir</button>
+        <button class="btn" id="btn-theme" onclick="toggleTheme()" title="Modo claro/oscuro">&#127769;</button>
+        <button class="btn" id="btn-logout" onclick="doLogout()">Salir</button>
     </div>
 </div>
 
@@ -407,6 +441,8 @@
             <button class="tl-btn" onclick="tlZoomOut()" title="Zoom out">&minus;</button>
             <span class="tl-zoom-label" id="tl-zoom-label">Fit</span>
             <button class="tl-btn" onclick="tlZoomFit()" title="Fit to view">&#x21A4;&#x21A6;</button>
+            <span style="width:1px;height:14px;background:var(--border);margin:0 4px"></span>
+            <button class="tl-btn" onclick="addGap()" title="A&#241;adir gap" style="font-size:10px;width:auto;padding:0 6px">+ Gap</button>
         </div>
         <!-- EDIT HEADER -->
         <div class="panel-head">
@@ -415,6 +451,7 @@
             <div class="spacer"></div>
             <button class="btn btn-sm" id="btn-sync-edit" onclick="toggleSync('edit')" title="Auto-scroll sync">Sync &#10003;</button>
             <button class="btn btn-merge hidden" id="btn-merge-edit" onclick="doMerge('edit')">Fusionar</button>
+            <button class="btn btn-sm" id="btn-add-gap" onclick="addGap()" title="A&#241;adir espacio negro">+ Gap</button>
             <button class="btn btn-sm" id="btn-clear" disabled onclick="clearEdit()">limpiar</button>
         </div>
         <!-- EDIT LIST -->
@@ -531,6 +568,12 @@ let srcFilterFav = false;
 
 // Source ID counter (stable IDs, never renumbered)
 let nextSrcId = 0;
+
+// Panel mode
+let panelMode = 'split'; // 'left', 'split', 'right'
+
+// Pending media input for project load
+let pendingMediaInput = null;
 
 // Timeline
 let tlCanvas = null, tlCtx = null;
@@ -732,13 +775,14 @@ function renderEdit() {
 
     el.innerHTML = edit.map((s, i) => {
         const sel = editSel.includes(i);
-        return `<div class="e-row${sel ? ' selected' : ''}" data-ei="${i}">
+        const isGap = s.type === 'gap';
+        return `<div class="e-row${sel ? ' selected' : ''}${isGap ? ' gap-row' : ''}" data-ei="${i}">
             <span class="grip" data-drag-handle>&vellip;&vellip;</span>
             <span class="num">${i + 1}</span>
             <span class="tc"><span class="tc-in" data-panel="edit" data-idx="${i}" data-field="start">${fmtTCEdit(s.start)}</span><span class="tc-sep">-</span><span class="tc-out" data-panel="edit" data-idx="${i}" data-field="end">${fmtTCEdit(s.end)}</span></span>
-            <span class="txt" data-panel="edit" data-idx="${i}">${esc(s.text)}</span>
+            <span class="txt" data-panel="edit" data-idx="${i}">${isGap ? '&#9608; Gap (espacio negro)' : esc(s.text)}</span>
             <span class="actions">
-                <button class="row-btn split-btn" onclick="event.stopPropagation();doSplit('edit',${i})" title="Dividir">&#9986;</button>
+                ${isGap ? '' : `<button class="row-btn split-btn" onclick="event.stopPropagation();doSplit('edit',${i})" title="Dividir">&#9986;</button>`}
                 <button class="row-btn del-btn" onclick="event.stopPropagation();removeFromEdit(${i})" title="Eliminar">&times;</button>
             </span>
         </div>`;
@@ -1310,8 +1354,25 @@ function stopEditPlay() {
 }
 
 function editTick() {
-    if (!editVideo || !editPlayActive || editPlayIdx < 0 || editPlayIdx >= edit.length) return;
+    if (!editPlayActive || editPlayIdx < 0 || editPlayIdx >= edit.length) return;
     const seg = edit[editPlayIdx];
+
+    // Handle gap clips: wait for duration then advance
+    if (seg.type === 'gap') {
+        if (!seg._gapStart) seg._gapStart = Date.now();
+        const gapDur = (seg.end - seg.start) * 1000;
+        if (Date.now() - seg._gapStart >= gapDur) {
+            delete seg._gapStart;
+            editPlayIdx++;
+            if (editPlayIdx < edit.length) {
+                const next = edit[editPlayIdx];
+                if (next.type !== 'gap' && editVideo) { editVideo.currentTime = next.start; editVideo.play(); }
+            } else { stopEditPlay(); }
+        }
+        return;
+    }
+
+    if (!editVideo) return;
     const t = editVideo.currentTime;
 
     document.querySelectorAll('.e-row.playing').forEach(r => r.classList.remove('playing'));
@@ -1338,7 +1399,13 @@ function editTick() {
     if (t >= seg.end - 0.05) {
         editPlayIdx++;
         if (editPlayIdx < edit.length) {
-            editVideo.currentTime = edit[editPlayIdx].start;
+            const next = edit[editPlayIdx];
+            if (next.type === 'gap') {
+                editVideo.pause();
+                next._gapStart = Date.now();
+            } else {
+                editVideo.currentTime = next.start;
+            }
         } else {
             stopEditPlay();
         }
@@ -1392,7 +1459,7 @@ function tlGetMetrics() {
 
 function drawTimeline() {
     const wrap = document.getElementById('timeline-wrap');
-    if (!tlCanvas || !tlCtx) return; // guard: not yet initialized
+    if (!tlCanvas || !tlCtx) return;
     const tlControls = document.getElementById('tl-controls');
     if (!edit.length) { wrap.classList.remove('visible'); if (tlControls) tlControls.classList.remove('visible'); return; }
     wrap.classList.add('visible');
@@ -1400,9 +1467,14 @@ function drawTimeline() {
 
     const { w, h, totalDur, pxPerSec } = tlGetMetrics();
     const ctx = tlCtx;
+    const LBL_W = 28; // track label column width
     const rulerH = 18;
+    const trackGap = 2;
+    const v1H = Math.floor((h - rulerH - trackGap * 2) * 0.6);
+    const s1Y = rulerH + trackGap + v1H + trackGap;
+    const s1H = h - s1Y - 1;
 
-    // Read theme colors
+    // Theme colors
     const cs = getComputedStyle(document.documentElement);
     const cBg = cs.getPropertyValue('--bg').trim() || '#0c0c0c';
     const cSurface = cs.getPropertyValue('--surface').trim() || '#141414';
@@ -1413,86 +1485,126 @@ function drawTimeline() {
     const cTextMuted = cs.getPropertyValue('--text-muted').trim() || '#444';
     const cRed = cs.getPropertyValue('--red').trim() || '#ff4444';
     const cYellow = cs.getPropertyValue('--yellow').trim() || '#ffd94a';
-    const clipY = rulerH + 2;
-    const clipH = h - clipY - 2;
 
-    // Clear
     ctx.clearRect(0, 0, w, h);
 
-    // Ruler background
+    // ── Ruler ──
     ctx.fillStyle = cSurface;
     ctx.fillRect(0, 0, w, rulerH);
-
-    // Ruler marks (adaptive interval)
     const interval = calcRulerInterval(totalDur, w);
     ctx.fillStyle = cTextMuted;
     ctx.font = '9px JetBrains Mono, monospace';
     ctx.textBaseline = 'top';
     for (let t = 0; t <= totalDur; t += interval) {
-        const x = t * pxPerSec;
+        const x = LBL_W + (t / totalDur) * (w - LBL_W);
         ctx.fillRect(x, rulerH - 6, 1, 6);
         if (x + 40 < w) ctx.fillText(fmtTC(t), x + 3, 2);
     }
 
-    // Clips
-    let cx = 0;
+    // ── Track labels ──
+    ctx.fillStyle = cSurface;
+    ctx.fillRect(0, rulerH, LBL_W, h - rulerH);
+    ctx.strokeStyle = cBorder;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(LBL_W, rulerH); ctx.lineTo(LBL_W, h); ctx.stroke();
+    // Track separator line
+    ctx.beginPath(); ctx.moveTo(0, s1Y - 1); ctx.lineTo(w, s1Y - 1); ctx.stroke();
+
+    ctx.fillStyle = cTextMuted;
+    ctx.font = '8px JetBrains Mono, monospace';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('V1', 5, rulerH + trackGap + v1H / 2);
+    ctx.fillText('S1', 5, s1Y + s1H / 2);
+
+    // ── V1 Track: Video clips ──
+    const clipY = rulerH + trackGap;
+    const clipH = v1H;
+    const trackW = w - LBL_W;
+    let cx = LBL_W;
+    const pps = totalDur > 0 ? trackW / totalDur : 1;
+
     edit.forEach((clip, i) => {
         const dur = clip.end - clip.start;
-        const cw = dur * pxPerSec;
-
-        // Background
+        const cw = dur * pps;
         const isPlaying = editPlayActive && editPlayIdx === i;
         const isSel = editSel.includes(i);
-        ctx.fillStyle = isPlaying ? cBorder : cSurface2;
-        ctx.fillRect(cx + 0.5, clipY, cw - 1, clipH);
+        const isGap = clip.type === 'gap';
 
-        // Border
-        ctx.strokeStyle = isSel ? cYellow : isPlaying ? cRed : cBorder;
-        ctx.lineWidth = isSel ? 1.5 : 1;
-        ctx.strokeRect(cx + 0.5, clipY, cw - 1, clipH);
-
-        // Label
-        if (cw > 20) {
-            ctx.fillStyle = isPlaying ? cText : cTextDim;
-            ctx.font = '9px Inter, sans-serif';
-            const label = `${i + 1}`;
-            const maxTxtW = cw - 8;
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(cx + 2, clipY, cw - 4, clipH);
-            ctx.clip();
-            ctx.fillText(label, cx + 4, clipY + 4);
-            if (cw > 50) {
-                ctx.fillStyle = isPlaying ? cTextDim : cTextMuted;
-                ctx.font = '8px Inter, sans-serif';
-                const txt = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
-                ctx.fillText(txt, cx + 4, clipY + 16);
-            }
-            ctx.restore();
+        // Background
+        if (isGap) {
+            ctx.fillStyle = cBg;
+            ctx.fillRect(cx + 0.5, clipY, cw - 1, clipH);
+            ctx.strokeStyle = cBorder;
+            ctx.setLineDash([3, 3]);
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx + 0.5, clipY, cw - 1, clipH);
+            ctx.setLineDash([]);
+        } else {
+            ctx.fillStyle = isPlaying ? cBorder : cSurface2;
+            ctx.fillRect(cx + 0.5, clipY, cw - 1, clipH);
+            ctx.strokeStyle = isSel ? cYellow : isPlaying ? cRed : cBorder;
+            ctx.lineWidth = isSel ? 1.5 : 1;
+            ctx.strokeRect(cx + 0.5, clipY, cw - 1, clipH);
         }
 
-        // Trim handles (visual hint)
-        if (cw > 16) {
+        // V1 Label
+        if (cw > 18 && !isGap) {
+            ctx.fillStyle = isPlaying ? cText : cTextDim;
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textBaseline = 'top';
+            ctx.save();
+            ctx.beginPath(); ctx.rect(cx + 2, clipY, cw - 4, clipH); ctx.clip();
+            ctx.fillText(`${i + 1}`, cx + 4, clipY + 3);
+            ctx.restore();
+        } else if (isGap && cw > 18) {
+            ctx.fillStyle = cTextMuted;
+            ctx.font = '8px Inter, sans-serif';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('GAP', cx + 4, clipY + clipH / 2);
+        }
+
+        // Trim handles
+        if (cw > 16 && !isGap) {
             ctx.fillStyle = isSel ? 'rgba(255,217,74,0.3)' : 'rgba(128,128,128,0.1)';
             ctx.fillRect(cx + 0.5, clipY, 4, clipH);
             ctx.fillRect(cx + cw - 4.5, clipY, 4, clipH);
+        }
+
+        // ── S1 Track: Subtitle text ──
+        ctx.fillStyle = isGap ? cBg : (isPlaying ? 'rgba(255,68,68,0.08)' : cSurface2);
+        ctx.fillRect(cx + 0.5, s1Y, cw - 1, s1H);
+        ctx.strokeStyle = cBorder;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(cx + 0.5, s1Y, cw - 1, s1H);
+
+        if (cw > 20 && !isGap) {
+            ctx.fillStyle = isPlaying ? cText : cTextDim;
+            ctx.font = '8px Inter, sans-serif';
+            ctx.textBaseline = 'middle';
+            ctx.save();
+            ctx.beginPath(); ctx.rect(cx + 2, s1Y, cw - 4, s1H); ctx.clip();
+            const stxt = clip.text.length > 40 ? clip.text.substring(0, 40) + '...' : clip.text;
+            ctx.fillText(stxt, cx + 4, s1Y + s1H / 2);
+            ctx.restore();
         }
 
         cx += cw;
     });
 
     // Playhead
-    drawPlayhead(w, h, pxPerSec, rulerH);
+    drawPlayhead(w, h, pps, rulerH, LBL_W);
 }
 
-function drawPlayhead(w, h, pxPerSec, rulerH) {
+function drawPlayhead(w, h, pxPerSec, rulerH, lblW) {
     if (!editPlayActive || editPlayIdx < 0 || !editVideo) return;
     const ctx = tlCtx;
+    const LBL_W = lblW || 28;
+    const totalDur = edit.reduce((a, s) => a + (s.end - s.start), 0);
     let elapsed = 0;
     for (let j = 0; j < editPlayIdx; j++) elapsed += (edit[j].end - edit[j].start);
     const seg = edit[editPlayIdx];
     if (seg) elapsed += Math.max(0, editVideo.currentTime - seg.start);
-    const x = elapsed * pxPerSec;
+    const x = LBL_W + (totalDur > 0 ? (elapsed / totalDur) * (w - LBL_W) : 0);
 
     ctx.save();
     ctx.strokeStyle = '#ff4444';
@@ -1542,16 +1654,21 @@ function calcRulerInterval(totalDur, width) {
 
 function tlHitTest(mx, my) {
     if (!edit.length) return null;
-    const { w, h, pxPerSec } = tlGetMetrics();
+    const { w, h, totalDur } = tlGetMetrics();
+    const LBL_W = 28;
     const rulerH = 18;
-    if (my < rulerH) return { type: 'ruler', time: mx / pxPerSec };
+    const trackW = w - LBL_W;
+    const pps = totalDur > 0 ? trackW / totalDur : 1;
+    if (mx < LBL_W) return null;
+    if (my < rulerH) return { type: 'ruler', time: (mx - LBL_W) / pps };
 
-    let cx = 0;
+    let cx = LBL_W;
     for (let i = 0; i < edit.length; i++) {
         const dur = edit[i].end - edit[i].start;
-        const cw = dur * pxPerSec;
+        const cw = dur * pps;
         if (mx >= cx && mx < cx + cw) {
             const localX = mx - cx;
+            if (edit[i].type === 'gap') return { type: 'clip', idx: i, cx, cw };
             if (localX < 6) return { type: 'trim-left', idx: i, cx, cw };
             if (localX > cw - 6) return { type: 'trim-right', idx: i, cx, cw };
             return { type: 'clip', idx: i, cx, cw };
@@ -1575,12 +1692,17 @@ function tlMouseDown(e) {
     }
 
     if (hit.type === 'clip') {
-        // Select + seek
+        // Select clip
         editSel = [hit.idx];
         lastEditClick = hit.idx;
         activePanel = 'edit';
         updateSelUI('edit'); updateMergeBtns();
-        seekEditClip(hit.idx);
+
+        // Pause playhead during drag
+        if (editPlayActive && editVideo) {
+            editVideo.pause();
+            stopTlAnimation();
+        }
 
         // Start drag-to-reorder
         tlDrag = { active: true, type: 'reorder', idx: hit.idx, startX: mx, origStart: 0, origEnd: 0, origOrder: edit.map((_, i) => i) };
@@ -1631,10 +1753,14 @@ function tlMouseMove(e) {
     } else if (tlDrag.type === 'reorder') {
         tlCanvas.style.cursor = 'grabbing';
         // Calculate target position
-        let cx = 0, targetIdx = edit.length;
+        const LBL_W = 28;
+        const totalDur = edit.reduce((a, s) => a + (s.end - s.start), 0);
+        const trackW = w - LBL_W;
+        const pps2 = totalDur > 0 ? trackW / totalDur : 1;
+        let cx = LBL_W, targetIdx = edit.length;
         for (let i = 0; i < edit.length; i++) {
             const dur = edit[i].end - edit[i].start;
-            const cw = dur * pxPerSec;
+            const cw = dur * pps2;
             if (mx < cx + cw / 2) { targetIdx = i; break; }
             cx += cw;
         }
@@ -1654,6 +1780,7 @@ function tlMouseMove(e) {
 
 function tlMouseUp(e) {
     if (tlDrag.active) {
+        const wasDrag = Math.abs(e.clientX - tlDrag.startX - (tlCanvas.getBoundingClientRect().left || 0)) > 5 || tlDrag.type !== 'reorder';
         tlDrag.active = false;
         tlCanvas.style.cursor = 'default';
         drawTimeline();
@@ -1824,21 +1951,23 @@ function loadProject(file) {
             srcSel = []; editSel = [];
             initHistory();
             renderSrc(); renderEdit();
-            // Prompt to load media file
+            // Prompt to load media file via custom modal
             if (mediaName) {
-                const mediaInput = document.createElement('input');
-                mediaInput.type = 'file';
-                mediaInput.accept = 'audio/*,video/*';
-                mediaInput.style.display = 'none';
-                document.body.appendChild(mediaInput);
-                mediaInput.addEventListener('change', me => {
+                pendingMediaInput = document.createElement('input');
+                pendingMediaInput.type = 'file';
+                pendingMediaInput.accept = 'audio/*,video/*';
+                pendingMediaInput.style.display = 'none';
+                document.body.appendChild(pendingMediaInput);
+                pendingMediaInput.addEventListener('change', me => {
                     const mf = me.target.files[0];
                     if (mf) loadMedia(mf);
-                    mediaInput.remove();
+                    pendingMediaInput.remove();
+                    pendingMediaInput = null;
+                    closeModal('media-modal');
                 });
                 setTimeout(() => {
-                    alert('Proyecto cargado. Selecciona el archivo media: ' + mediaName);
-                    mediaInput.click();
+                    document.getElementById('media-modal-name').textContent = mediaName;
+                    openModal('media-modal');
                 }, 100);
             }
         } catch (ex) {
@@ -2432,6 +2561,34 @@ document.addEventListener('click', e => {
 });
 
 // ════════════════════════════════════════════════
+// MODALS
+// ════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openAboutModal() { closeMenus(); openModal('about-modal'); }
+function triggerMediaSelect() {
+    if (pendingMediaInput) pendingMediaInput.click();
+}
+// Close modal on overlay click
+document.addEventListener('click', e => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('open');
+    }
+});
+
+// ════════════════════════════════════════════════
+// GAP CLIPS
+// ════════════════════════════════════════════════
+function addGap(duration) {
+    if (!duration) duration = 2;
+    pushHistory();
+    const idx = editSel.length ? Math.max(...editSel) + 1 : edit.length;
+    edit.splice(idx, 0, { type: 'gap', start: 0, end: duration, text: '', sourceId: -1 });
+    editSel = [idx];
+    renderEdit();
+}
+
+// ════════════════════════════════════════════════
 // TIMELINE ZOOM
 // ════════════════════════════════════════════════
 function tlZoomIn() { tlZoom = Math.min(tlZoom * 1.5, 20); updateTlZoom(); }
@@ -2441,6 +2598,42 @@ function updateTlZoom() {
     const label = document.getElementById('tl-zoom-label');
     if (label) label.textContent = tlZoom <= 1.01 ? 'Fit' : Math.round(tlZoom * 100) + '%';
     drawTimeline();
+}
+
+// ════════════════════════════════════════════════
+// PANEL MODE (left / split / right)
+// ════════════════════════════════════════════════
+function setPanelMode(mode) {
+    panelMode = mode;
+    const left = document.getElementById('panel-left');
+    const right = document.getElementById('panel-right');
+    const divider = document.getElementById('panel-divider');
+
+    // Reset flex styles
+    left.style.flex = ''; left.style.width = ''; left.style.display = '';
+    right.style.flex = ''; right.style.display = '';
+    divider.style.display = '';
+
+    if (mode === 'left') {
+        right.style.display = 'none';
+        divider.style.display = 'none';
+        left.style.flex = '1';
+    } else if (mode === 'right') {
+        left.style.display = 'none';
+        divider.style.display = 'none';
+        right.style.flex = '1';
+    } else {
+        left.style.flex = '45';
+        right.style.flex = '55';
+    }
+
+    // Update toggle buttons
+    document.querySelectorAll('.panel-toggle .pt-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('pt-' + mode);
+    if (btn) btn.classList.add('active');
+
+    // Redraw timeline after layout change
+    setTimeout(() => { if (edit.length) drawTimeline(); }, 50);
 }
 
 // ════════════════════════════════════════════════
@@ -2454,6 +2647,7 @@ function updateTlZoom() {
     let dragging = false;
 
     divider.addEventListener('mousedown', e => {
+        if (panelMode !== 'split') return;
         e.preventDefault();
         dragging = true;
         divider.classList.add('active');
@@ -2478,7 +2672,6 @@ function updateTlZoom() {
         divider.classList.remove('active');
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        // Redraw timeline on resize
         if (edit.length) drawTimeline();
     });
 })();
@@ -2533,11 +2726,88 @@ function checkAuth() {
 }
 
 // ════════════════════════════════════════════════
+// AUTOSAVE (every 5 minutes to localStorage)
+// ════════════════════════════════════════════════
+function autoSave() {
+    if (!src.length && !edit.length) return;
+    const data = { src, edit, mediaName, mediaDur, isVideo, nextSrcId };
+    localStorage.setItem('t2e_autosave', JSON.stringify(data));
+    localStorage.setItem('t2e_autosave_time', new Date().toISOString());
+    // Brief visual indicator
+    const logo = document.querySelector('.topbar-logo');
+    if (logo) {
+        const orig = logo.style.color;
+        logo.style.color = 'var(--green)';
+        setTimeout(() => { logo.style.color = orig; }, 800);
+    }
+}
+setInterval(autoSave, 5 * 60 * 1000);
+
+// Check for autosave on load
+function checkAutosave() {
+    const saved = localStorage.getItem('t2e_autosave');
+    const time = localStorage.getItem('t2e_autosave_time');
+    if (saved && time && !src.length) {
+        try {
+            const d = JSON.parse(saved);
+            if (d.src && d.src.length > 0) {
+                const ago = Math.round((Date.now() - new Date(time).getTime()) / 60000);
+                if (ago < 60 * 24 && confirm('Se encontr\u00f3 un autosave de hace ' + ago + ' min. \u00bfRestaurar?')) {
+                    src = d.src; edit = d.edit || []; mediaName = d.mediaName || '';
+                    mediaDur = d.mediaDur || 0; isVideo = d.isVideo || false;
+                    nextSrcId = d.nextSrcId || (src.length ? Math.max(...src.map(s => s.id)) + 1 : 0);
+                    initHistory(); renderSrc(); renderEdit();
+                }
+            }
+        } catch (e) {}
+    }
+}
+
+// ════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════
 initTheme();
 checkAuth();
 initApiKey();
+checkAutosave();
 </script>
+
+<!-- ABOUT MODAL -->
+<div class="modal-overlay" id="about-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>artefacto:text2edit</h2>
+            <button class="modal-close" onclick="closeModal('about-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p><strong>text2edit</strong> es una herramienta browser-based video editor for interview transcriptions. Load a Whisper transcript and media, then select, reorder, trim and edit subtitle clips. Creada por:</p>
+            <div class="about-brand">Artefacto Films</div>
+            <p>Artefacto Films es una productora e iniciativa de investigaci&oacute;n audiovisual con base en Barcelona centrada en la intersecci&oacute;n entre cine, inteligencia artificial y cultura digital. Su pr&aacute;ctica combina producci&oacute;n cinematogr&aacute;fica, I+D y formaci&oacute;n, con proyectos que exploran memoria, archivos, automatizaci&oacute;n y nuevas narrativas algor&iacute;tmicas. El estudio opera entre el circuito festivalero internacional, el &aacute;mbito acad&eacute;mico y el desarrollo tecnol&oacute;gico, impulsando documentales, obras h&iacute;bridas e instalaciones interactivas mientras dise&ntilde;a herramientas y metodolog&iacute;as propias para el an&aacute;lisis y la creaci&oacute;n audiovisual con IA.</p>
+            <div class="about-brand">Jorge Caballero</div>
+            <p>Jorge Caballero es cineasta, investigador y cofundador de Artefacto Films, con un trabajo orientado al documental expandido y la experimentaci&oacute;n con sistemas algor&iacute;tmicos aplicados al relato. Su trayectoria articula direcci&oacute;n cinematogr&aacute;fica, investigaci&oacute;n acad&eacute;mica y desarrollo tecnol&oacute;gico, con proyectos presentados en festivales y espacios internacionales que examinan la memoria, la violencia institucional, los archivos y las transformaciones perceptivas derivadas de la inteligencia artificial.</p>
+            <a href="https://artefactofilms.com/" target="_blank" class="about-link">artefactofilms.com &nearr;</a>
+            <div class="about-version">v0.7 &mdash; MIT License</div>
+        </div>
+    </div>
+</div>
+
+<!-- MEDIA PROMPT MODAL -->
+<div class="modal-overlay" id="media-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Cargar Media</h2>
+            <button class="modal-close" onclick="closeModal('media-modal')">&times;</button>
+        </div>
+        <div class="modal-media-prompt">
+            <div class="media-icon">&#127916;</div>
+            <h3>Proyecto cargado correctamente</h3>
+            <p>Para previsualizar los clips, selecciona el archivo de media asociado:</p>
+            <div class="media-name" id="media-modal-name"></div>
+            <br>
+            <button onclick="triggerMediaSelect()">Seleccionar archivo</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

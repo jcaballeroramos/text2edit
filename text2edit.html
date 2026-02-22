@@ -1,0 +1,2252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>text2edit</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        :root{
+            --bg:#0c0c0c;--surface:#141414;--surface2:#1a1a1a;
+            --border:#222;--border-light:#2a2a2a;
+            --text:#d4d4d4;--text-dim:#666;--text-muted:#444;
+            --accent:#e8e8e8;--highlight:#fff;
+            --red:#ff4444;--red-dim:rgba(255,68,68,0.08);--red-mid:rgba(255,68,68,0.15);
+            --blue:#4a9eff;--blue-dim:rgba(74,158,255,0.08);--blue-mid:rgba(74,158,255,0.12);
+            --green:#4aff7e;--green-dim:rgba(74,255,126,0.08);
+            --yellow:#ffd94a;--yellow-dim:rgba(255,217,74,0.12);
+            --mono:'JetBrains Mono','SF Mono',monospace;
+            --sans:'Inter',-apple-system,sans-serif;
+        }
+        body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:13px;-webkit-font-smoothing:antialiased}
+
+        /* ── TOPBAR ── */
+        .topbar{height:44px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:8px}
+        .topbar-logo{font-size:13px;font-weight:600;letter-spacing:.08em;color:var(--text-dim)}
+        .topbar-sep{width:1px;height:20px;background:var(--border)}
+        .topbar-actions{display:flex;gap:5px;margin-left:auto}
+
+        /* ── BUTTONS ── */
+        .btn{height:28px;padding:0 10px;border:1px solid var(--border-light);border-radius:6px;background:var(--surface2);color:var(--text-dim);cursor:pointer;font-size:11px;font-family:var(--sans);font-weight:500;display:inline-flex;align-items:center;gap:4px;transition:all .12s;white-space:nowrap}
+        .btn:hover{background:var(--border);color:var(--text)}
+        .btn-accent{color:var(--text)}
+        .btn:disabled{opacity:.25;pointer-events:none}
+        .btn-merge{height:22px;padding:0 8px;font-size:10px;background:var(--yellow-dim);border-color:rgba(255,217,74,.3);color:var(--yellow)}
+        .btn-merge:hover{background:rgba(255,217,74,.2);color:var(--highlight)}
+        .btn-sm{height:22px;padding:0 8px;font-size:10px}
+        .btn-sync-off{opacity:.35}
+
+        /* ── LAYOUT ── */
+        .main{display:flex;height:calc(100vh - 44px)}
+        .panel{display:flex;flex-direction:column;min-width:0}
+        .panel-left{flex:45;min-width:0;border-right:1px solid var(--border)}
+        .panel-right{flex:55;min-width:0}
+
+        .panel-head{height:36px;padding:0 14px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+        .panel-head h2{font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+        .panel-head .count{font-size:10px;font-family:var(--mono);color:var(--text-muted);background:var(--surface2);padding:1px 6px;border-radius:3px}
+        .panel-head .spacer{flex:1}
+
+        /* ── MEDIA AREAS ── */
+        .media-area{background:#000;border-bottom:1px solid var(--border);flex-shrink:0;position:relative}
+        .media-area video,.media-area audio{width:100%;max-height:280px;display:block}
+        .media-area audio{padding:20px 14px;background:var(--surface)}
+        .media-placeholder{height:60px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;background:var(--surface);border-bottom:1px solid var(--border)}
+        .speed-bar{display:flex;gap:4px;padding:6px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+        .speed-btn{padding:2px 7px;font-size:10px;font-family:var(--mono);border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-muted);cursor:pointer;transition:all .1s}
+        .speed-btn:hover{color:var(--text);border-color:var(--border-light)}
+        .speed-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+
+        /* Edit video */
+        .edit-video-container{position:relative}
+        .edit-video-overlay{position:absolute;bottom:8px;left:10px;right:10px;display:flex;justify-content:space-between;pointer-events:none;z-index:2}
+        .edit-video-overlay .label{font-size:10px;font-family:var(--mono);color:#fff;background:rgba(0,0,0,.7);padding:2px 8px;border-radius:3px}
+        .edit-video-empty{height:60px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;background:var(--surface);border-bottom:1px solid var(--border)}
+
+        /* ── EDIT CONTROLS BAR ── */
+        .edit-controls{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
+        .ctrl-btn{background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:13px;width:28px;height:26px;display:inline-flex;align-items:center;justify-content:center;transition:all .12s}
+        .ctrl-btn:hover{background:var(--border);color:var(--highlight)}
+        .ctrl-btn:disabled{opacity:.25;pointer-events:none}
+        .ctrl-btn.active{background:var(--red);color:#000;border-color:var(--red)}
+        .ctrl-time{font-family:var(--mono);font-size:10px;color:var(--text-muted);min-width:90px}
+        .ctrl-clip{font-family:var(--mono);font-size:10px;color:var(--red);opacity:.7}
+        .ctrl-volume{width:60px;height:4px;accent-color:var(--text-dim);cursor:pointer}
+        .ctrl-spacer{flex:1}
+
+        /* ── SCROLL LISTS ── */
+        .scroll-list{flex:1;overflow-y:auto}
+
+        /* ── SOURCE ROWS ── */
+        .s-row{display:flex;padding:6px 14px;gap:8px;align-items:baseline;cursor:pointer;transition:background .08s;border-left:2px solid transparent;position:relative}
+        .s-row:hover{background:var(--blue-dim)}
+        .s-row.current{background:var(--blue-mid);border-left-color:var(--blue)}
+        .s-row.selected{background:var(--yellow-dim);border-left-color:var(--yellow)}
+        .s-row.used{opacity:.35}
+        .s-row.fav{border-left-color:var(--red)}
+        .s-row.fav.selected{border-left-color:var(--red)}
+        .fav-icon{color:var(--red);font-size:11px;flex-shrink:0;opacity:.15;cursor:pointer;transition:opacity .1s;line-height:1}
+        .s-row.fav .fav-icon{opacity:1}
+        .s-row:hover .fav-icon{opacity:.5}
+        .s-row.fav:hover .fav-icon{opacity:1}
+        #btn-filter-fav{color:var(--red)}
+        #btn-filter-fav.btn-sync-off{color:var(--text-dim)}
+        .s-row .tc{font-family:var(--mono);font-size:10px;color:var(--text-muted);min-width:85px;flex-shrink:0}
+        .s-row .txt{flex:1;line-height:1.5;color:var(--text)}
+        .s-row .actions{display:flex;gap:2px;opacity:0;transition:opacity .1s;flex-shrink:0}
+        .s-row:hover .actions{opacity:1}
+        .row-btn{font-size:14px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0 3px;transition:all .1s;line-height:1}
+        .row-btn:hover{color:var(--highlight)}
+        .row-btn.split-btn{font-size:12px}
+        .row-btn.split-btn:hover{color:var(--yellow)}
+
+        /* ── EDIT ROWS ── */
+        .e-row{display:flex;padding:7px 14px;gap:8px;align-items:baseline;cursor:default;transition:background .08s;border-left:2px solid transparent;position:relative;user-select:none}
+        .e-row:hover{background:var(--red-dim)}
+        .e-row.playing{background:var(--red-mid);border-left-color:var(--red)}
+        .e-row.selected{background:var(--yellow-dim);border-left-color:var(--yellow)}
+        .e-row.is-dragging{opacity:.2}
+        .e-row .grip{color:var(--text-muted);font-size:12px;cursor:grab;user-select:none;opacity:.25;flex-shrink:0;letter-spacing:-2px;touch-action:none}
+        .e-row:hover .grip{opacity:.7}
+        .e-row .grip:active{cursor:grabbing}
+        .e-row .num{font-family:var(--mono);font-size:10px;color:var(--text-muted);min-width:20px;text-align:right;flex-shrink:0}
+        .e-row .tc{font-family:var(--mono);font-size:10px;color:var(--red);opacity:.6;min-width:70px;flex-shrink:0}
+        .e-row .txt{flex:1;line-height:1.5;cursor:pointer}
+        .e-row .txt:hover{color:var(--highlight)}
+        .e-row .actions{display:flex;gap:2px;opacity:0;transition:opacity .1s;flex-shrink:0}
+        .e-row:hover .actions{opacity:1}
+        .row-btn.del-btn:hover{color:var(--red)}
+
+        /* ── INLINE EDIT ── */
+        .txt[contenteditable="true"]{background:rgba(255,255,255,.05);border-radius:3px;padding:2px 6px;margin:-2px -6px;outline:1px solid var(--blue);cursor:text;color:var(--highlight)}
+
+        /* ── SPLIT MODE ── */
+        .split-overlay{position:fixed;inset:0;z-index:9998;background:transparent}
+        .split-row{background:var(--surface2)!important;border-left-color:var(--yellow)!important;z-index:9999;position:relative}
+        .split-words{display:inline}
+        .split-words .word{display:inline;padding:2px 0}
+        .split-point{display:inline-block;width:2px;height:16px;vertical-align:middle;margin:0 1px;cursor:pointer;position:relative;border-radius:1px;transition:all .1s}
+        .split-point:hover{background:var(--red);width:3px;box-shadow:0 0 8px rgba(255,68,68,.5)}
+        .split-point::after{content:'';position:absolute;inset:-6px -8px}
+        .split-hint{position:fixed;top:48px;left:50%;transform:translateX(-50%);background:var(--yellow);color:#000;font-size:11px;font-weight:600;padding:4px 16px;border-radius:0 0 6px 6px;z-index:10001;letter-spacing:.03em}
+
+        /* Drag ghost */
+        .e-row-ghost{position:fixed;pointer-events:none;z-index:10000;background:var(--surface2);border:1px solid var(--red);border-radius:6px;padding:8px 14px;display:flex;gap:8px;align-items:baseline;opacity:.92;box-shadow:0 8px 30px rgba(0,0,0,.5);font-size:13px;color:var(--text);max-width:500px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .e-row-ghost .tc{font-family:var(--mono);font-size:10px;color:var(--red)}
+        .drop-indicator{position:absolute;left:0;right:0;height:2px;background:var(--red);z-index:100;pointer-events:none;border-radius:1px;box-shadow:0 0 6px rgba(255,68,68,.4)}
+
+        /* ── TIMELINE ── */
+        .timeline-wrap{height:80px;background:var(--bg);border-bottom:1px solid var(--border);position:relative;flex-shrink:0;display:none}
+        .timeline-wrap.visible{display:block}
+        #timeline-canvas{display:block;width:100%;height:100%}
+
+        /* ── FOOTER ── */
+        .panel-foot{height:32px;padding:0 14px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+        .panel-foot .info{font-size:10px;font-family:var(--mono);color:var(--text-muted)}
+        .panel-foot .spacer{flex:1}
+        .shortcuts-hint{font-size:9px;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap}
+        .shortcuts-hint kbd{font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);padding:0 3px;border-radius:3px;font-size:9px;color:var(--text-dim)}
+
+        /* ── EMPTY ── */
+        .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);gap:8px;padding:40px 30px;text-align:center}
+        .empty p{font-size:12px;line-height:1.6;max-width:260px}
+
+        /* ── DROP OVERLAY ── */
+        .drop-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;font-size:14px;color:var(--text-dim);letter-spacing:.05em;border:2px dashed var(--border-light)}
+        .drop-overlay.visible{display:flex}
+
+        ::-webkit-scrollbar{width:5px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+        ::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+
+        .hidden{display:none!important}
+
+        /* ── AI SIDEBAR ── */
+        .panel-ai{width:0;min-width:0;overflow:hidden;border-left:1px solid var(--border);background:var(--bg);display:flex;flex-direction:column;transition:width .2s ease,min-width .2s ease;flex-shrink:0}
+        .panel-ai.open{width:340px;min-width:340px}
+        .panel-ai .panel-head{border-bottom:1px solid var(--border)}
+        .ai-config{padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface)}
+        .ai-config-row{display:flex;gap:6px;align-items:center}
+        .ai-input{flex:1;height:28px;padding:0 8px;background:var(--surface2);border:1px solid var(--border-light);border-radius:6px;color:var(--text);font-size:11px;font-family:var(--sans);outline:none;min-width:0}
+        .ai-input:focus{border-color:var(--blue)}
+        .ai-status{font-size:10px;color:var(--text-muted);margin-top:4px;font-family:var(--mono)}
+        .ai-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+        .ai-tab{flex:1;height:32px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-dim);font-size:11px;font-weight:500;font-family:var(--sans);cursor:pointer;transition:all .12s}
+        .ai-tab:hover{color:var(--text)}
+        .ai-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+        .ai-tab-content{display:flex;flex-direction:column;flex:1;overflow:hidden}
+        .ai-tab-content.hidden{display:none!important}
+        .ai-correct-actions{padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid var(--border);flex-shrink:0}
+        .ai-diff-list{flex:1;overflow-y:auto}
+        .ai-diff-actions{padding:8px 12px;display:flex;gap:6px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+        .ai-diff-row{padding:8px 12px;border-bottom:1px solid var(--border)}
+        .ai-diff-row .diff-idx{font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-bottom:4px}
+        .ai-diff-row .diff-original{font-size:12px;color:var(--text-dim);text-decoration:line-through;line-height:1.5;margin-bottom:2px}
+        .ai-diff-row .diff-corrected{font-size:12px;color:var(--green);line-height:1.5;margin-bottom:6px}
+        .ai-diff-row .diff-btns{display:flex;gap:4px}
+        .ai-diff-row .diff-btns button{height:22px;padding:0 8px;font-size:10px}
+        .ai-chat-messages{flex:1;overflow-y:auto;padding:8px 0}
+        .ai-msg{padding:6px 12px;font-size:12px;line-height:1.5}
+        .ai-msg-system{color:var(--text-muted);font-style:italic;font-size:11px}
+        .ai-msg-user{background:var(--blue-dim);border-left:2px solid var(--blue);color:var(--text);margin:4px 12px;border-radius:0 6px 6px 0;padding:6px 10px}
+        .ai-msg-assistant{color:var(--text);margin:4px 12px;padding:6px 10px;background:var(--surface2);border-radius:6px;white-space:pre-wrap}
+        .ai-msg-loading{color:var(--text-muted);font-style:italic;padding:6px 12px;font-size:11px}
+        .ai-chat-input-area{padding:8px 12px;display:flex;gap:6px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+
+        /* ── TC EDIT ── */
+        .tc-in,.tc-out{cursor:pointer;transition:color .1s}
+        .tc-in:hover,.tc-out:hover{color:var(--blue);text-decoration:underline}
+        .tc-in[contenteditable="true"],.tc-out[contenteditable="true"]{background:rgba(255,255,255,.05);outline:1px solid var(--blue);border-radius:2px;padding:0 2px;color:var(--highlight);cursor:text;text-decoration:none}
+        .tc-sep{color:var(--text-muted);margin:0 1px}
+    </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <span class="topbar-logo">text2edit</span>
+    <div class="topbar-sep"></div>
+    <button class="btn" onclick="document.getElementById('fi-txt').click()">Cargar TXT</button>
+    <button class="btn" onclick="document.getElementById('fi-media').click()">Cargar Media</button>
+    <div class="topbar-sep"></div>
+    <button class="btn" id="btn-save-proj" disabled onclick="saveProject()">Guardar .t2e</button>
+    <button class="btn" onclick="document.getElementById('fi-proj').click()">Cargar .t2e</button>
+    <div class="topbar-actions">
+        <button class="btn btn-accent" id="btn-xml" disabled onclick="exportXML()">XML</button>
+        <button class="btn btn-accent" id="btn-edl" disabled onclick="exportEDL()">EDL</button>
+        <button class="btn btn-accent" id="btn-srt" disabled onclick="exportSRT()">SRT</button>
+        <button class="btn btn-accent" id="btn-srt-src" disabled onclick="exportSrcSRT()">SRT Fuente</button>
+        <button class="btn btn-accent" id="btn-srt-fav" disabled onclick="exportFavSRT()" title="SRT solo favoritos">SRT &#9829;</button>
+        <button class="btn btn-accent" id="btn-export-txt" disabled onclick="exportTXT()">TXT</button>
+    </div>
+    <div class="topbar-sep"></div>
+    <button class="btn" id="btn-ai" onclick="toggleAI()" title="Panel AI &#8984;I">&#9733; AI</button>
+</div>
+
+<input type="file" id="fi-txt" class="hidden" accept=".txt" />
+<input type="file" id="fi-media" class="hidden" accept="audio/*,video/*" />
+<input type="file" id="fi-proj" class="hidden" accept=".t2e" />
+<div class="drop-overlay" id="dropOverlay">soltar archivo</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <!-- LEFT: ORIGINAL -->
+    <div class="panel panel-left" id="panel-left">
+        <div class="media-area" id="source-media-area">
+            <div class="media-placeholder" id="source-placeholder">Cargar media</div>
+            <div id="source-video-wrap" class="hidden"></div>
+        </div>
+        <div class="speed-bar hidden" id="source-speed-bar">
+            <button class="speed-btn" data-speed="0.5">0.5</button>
+            <button class="speed-btn" data-speed="0.75">0.75</button>
+            <button class="speed-btn active" data-speed="1">1x</button>
+            <button class="speed-btn" data-speed="1.25">1.25</button>
+            <button class="speed-btn" data-speed="1.5">1.5</button>
+            <button class="speed-btn" data-speed="2">2x</button>
+        </div>
+        <div class="panel-head">
+            <h2>Transcripcion</h2>
+            <span class="count" id="src-count">0</span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" id="btn-sync-src" onclick="toggleSync('src')" title="Auto-scroll sync">Sync &#10003;</button>
+            <button class="btn btn-merge hidden" id="btn-merge-src" onclick="doMerge('src')">Fusionar</button>
+            <button class="btn btn-sm btn-sync-off" id="btn-filter-fav" onclick="toggleFilterFav()" title="Filtrar favoritos">&#9829;</button>
+            <button class="btn btn-sm" onclick="createSubtitle()" title="Nuevo subtitulo &#8984;N">+ Nuevo</button>
+        </div>
+        <div class="scroll-list" id="src-list">
+            <div class="empty"><p>Carga un .txt con timestamps</p></div>
+        </div>
+        <div class="panel-foot">
+            <div class="shortcuts-hint">
+                <span><kbd>Space</kbd> play</span>
+                <span><kbd>&#8679;&#8594;</kbd> agregar</span>
+                <span><kbd>&#8679;&#8593;&#8595;</kbd> seleccion</span>
+                <span><kbd>&#8984;D</kbd> fusionar</span>
+                <span><kbd>&#8984;X</kbd> dividir</span>
+                <span><kbd>&#8984;N</kbd> nuevo</span>
+                <span><kbd>&#8679;S</kbd> &#9829;</span>
+                <span><kbd>&#9003;</kbd> borrar</span>
+                <span><kbd>&#8984;S</kbd> guardar</span>
+                <span><kbd>&#8984;Z</kbd> undo</span>
+                <span><kbd>&#8984;I</kbd> AI</span>
+                <span><kbd>&#8984;A</kbd> sel. todo</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: EDICION -->
+    <div class="panel panel-right" id="panel-right">
+        <!-- EDIT VIDEO AREA -->
+        <div class="media-area" id="edit-media-area">
+            <div class="edit-video-empty" id="edit-placeholder">Agrega clips para previsualizar</div>
+            <div id="edit-video-wrap" class="hidden">
+                <div class="edit-video-container" id="edit-video-container"></div>
+                <div class="edit-video-overlay">
+                    <span class="label" id="edit-overlay-clip"></span>
+                    <span class="label" id="edit-overlay-time"></span>
+                </div>
+            </div>
+        </div>
+        <!-- EDIT CONTROLS BAR (Play, Stop, Volume, Fullscreen) -->
+        <div class="edit-controls hidden" id="edit-controls">
+            <button class="ctrl-btn" id="ec-play" title="Play/Pause (Space)" disabled>&#9654;</button>
+            <button class="ctrl-btn" id="ec-stop" title="Stop" disabled>&#9632;</button>
+            <span class="ctrl-time" id="ec-time">00:00 / 00:00</span>
+            <span class="ctrl-clip" id="ec-clip"></span>
+            <div class="ctrl-spacer"></div>
+            <input type="range" class="ctrl-volume" id="ec-volume" min="0" max="1" step="0.05" value="1" title="Volumen">
+            <button class="ctrl-btn" id="ec-fullscreen" title="Pantalla completa">&#x26F6;</button>
+        </div>
+        <!-- TIMELINE -->
+        <div class="timeline-wrap" id="timeline-wrap">
+            <canvas id="timeline-canvas"></canvas>
+        </div>
+        <!-- EDIT HEADER -->
+        <div class="panel-head">
+            <h2>Edit</h2>
+            <span class="count" id="edit-count">0</span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" id="btn-sync-edit" onclick="toggleSync('edit')" title="Auto-scroll sync">Sync &#10003;</button>
+            <button class="btn btn-merge hidden" id="btn-merge-edit" onclick="doMerge('edit')">Fusionar</button>
+            <button class="btn btn-sm" id="btn-clear" disabled onclick="clearEdit()">limpiar</button>
+        </div>
+        <!-- EDIT LIST -->
+        <div class="scroll-list" id="edit-list">
+            <div class="empty"><p>Dblclick en la transcripcion para agregar clips</p></div>
+        </div>
+        <!-- FOOTER: stats only -->
+        <div class="panel-foot">
+            <span class="info" id="edit-stats"></span>
+            <div class="spacer"></div>
+            <div class="shortcuts-hint">
+                <span><kbd>Del</kbd> eliminar</span>
+                <span><kbd>Drag</kbd> reordenar</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI SIDEBAR -->
+    <div class="panel panel-ai" id="panel-ai">
+        <div class="panel-head">
+            <h2>AI</h2>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" onclick="toggleAI()">&#x2715;</button>
+        </div>
+        <div class="ai-config" id="ai-config">
+            <div class="ai-config-row">
+                <input type="password" id="ai-api-key" class="ai-input" placeholder="OpenAI API Key (sk-...)">
+                <button class="btn btn-sm" onclick="saveApiKey()">&#10003;</button>
+            </div>
+            <div class="ai-status" id="ai-status"></div>
+        </div>
+        <div class="ai-tabs">
+            <button class="ai-tab active" data-tab="correct" onclick="switchAITab('correct')">Corregir</button>
+            <button class="ai-tab" data-tab="chat" onclick="switchAITab('chat')">Chat</button>
+        </div>
+        <div class="ai-tab-content" id="ai-tab-correct">
+            <div class="ai-correct-actions">
+                <button class="btn" id="btn-correct-sel" onclick="correctSelected()" disabled>Corregir seleccionats</button>
+                <button class="btn" id="btn-correct-all" onclick="correctAll()" disabled>Corregir tots</button>
+            </div>
+            <div class="scroll-list ai-diff-list" id="ai-diff-list">
+                <div class="empty"><p>Selecciona subtitols i prem "Corregir"</p></div>
+            </div>
+            <div class="ai-diff-actions hidden" id="ai-diff-actions">
+                <button class="btn" onclick="acceptAllCorrections()">&#10003; Acceptar tots</button>
+                <button class="btn" onclick="rejectAllCorrections()">&#x2715; Rebutjar tots</button>
+            </div>
+        </div>
+        <div class="ai-tab-content hidden" id="ai-tab-chat">
+            <div class="scroll-list ai-chat-messages" id="ai-chat-messages">
+                <div class="ai-msg ai-msg-system">Pots preguntar sobre el contingut dels subtitols.</div>
+            </div>
+            <div class="ai-chat-input-area">
+                <input type="text" id="ai-chat-input" class="ai-input" placeholder="Pregunta sobre els subtitols..." onkeydown="if(event.key==='Enter')sendChat()">
+                <button class="btn btn-sm" onclick="sendChat()">&#9654;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+let src = [];
+let edit = [];
+let blobUrl = null;
+let sourceVideo = null;
+let editVideo = null;
+let mediaName = '';
+let mediaDur = 0;
+let isVideo = false;
+let srcTickId = null;
+let editTickId = null;
+
+// Playback
+let editPlayActive = false;
+let editPlayIdx = -1;
+
+// Selection
+let srcSel = [];
+let editSel = [];
+let lastSrcClick = -1;
+let lastEditClick = -1;
+
+// Active panel for keyboard nav
+let activePanel = 'src';
+
+// Split
+let splitActive = false;
+let splitPanel = null;
+let splitIdx = -1;
+
+// Inline edit
+let inlineEditing = false;
+
+// Undo/Redo
+let history = [];
+let historyIdx = -1;
+const MAX_HISTORY = 50;
+
+// Sync scroll
+let srcSyncScroll = true;
+let editSyncScroll = true;
+
+// Filter
+let srcFilterFav = false;
+
+// Source ID counter (stable IDs, never renumbered)
+let nextSrcId = 0;
+
+// Timeline
+let tlCanvas = null, tlCtx = null;
+let tlRAFId = null;
+let tlDrag = { active: false, type: null, idx: -1, startX: 0, origStart: 0, origEnd: 0, origOrder: null };
+
+// AI
+let aiOpen = false;
+let aiTab = 'correct';
+let pendingCorrections = [];
+let chatHistory = [];
+let chatMsgCounter = 0;
+
+// ════════════════════════════════════════════════
+// UNDO / REDO
+// ════════════════════════════════════════════════
+function pushHistory() {
+    history = history.slice(0, historyIdx + 1);
+    history.push({ src: JSON.parse(JSON.stringify(src)), edit: JSON.parse(JSON.stringify(edit)) });
+    if (history.length > MAX_HISTORY) history.shift();
+    historyIdx = history.length - 1;
+}
+function undo() {
+    if (historyIdx <= 0) return;
+    historyIdx--;
+    restoreState(history[historyIdx]);
+}
+function redo() {
+    if (historyIdx >= history.length - 1) return;
+    historyIdx++;
+    restoreState(history[historyIdx]);
+}
+function restoreState(state) {
+    if (editPlayActive) stopEditPlay();
+    src = JSON.parse(JSON.stringify(state.src));
+    edit = JSON.parse(JSON.stringify(state.edit));
+    srcSel = []; editSel = [];
+    renderSrc(); renderEdit();
+}
+function initHistory() {
+    history = [{ src: JSON.parse(JSON.stringify(src)), edit: JSON.parse(JSON.stringify(edit)) }];
+    historyIdx = 0;
+}
+
+// ════════════════════════════════════════════════
+// PARSER
+// ════════════════════════════════════════════════
+function parseTXT(raw) {
+    const segs = [];
+    const hdr = 'TRANSCRIPCION CON TIMESTAMPS:';
+    let text = raw;
+    const hi = raw.indexOf(hdr);
+    if (hi !== -1) {
+        let after = raw.substring(hi + hdr.length);
+        const si = after.indexOf('=====');
+        if (si !== -1) { after = after.substring(si); const nl = after.indexOf('\n'); if (nl !== -1) after = after.substring(nl + 1); }
+        text = after;
+    }
+    const rx = /\[(\d[\d:.]+)\s*->\s*(\d[\d:.]+)\]\s*(.*)/g;
+    let m;
+    while ((m = rx.exec(text)) !== null) {
+        const t = m[3].trim();
+        if (t && t !== '.') segs.push({ id: nextSrcId++, start: parseTC(m[1]), end: parseTC(m[2]), text: t });
+    }
+    return segs;
+}
+function parseTC(s) {
+    s = s.replace(',', '.');
+    const p = s.split(':');
+    if (p.length === 3) return +p[0] * 3600 + +p[1] * 60 + parseFloat(p[2]);
+    if (p.length === 2) return +p[0] * 60 + parseFloat(p[1]);
+    return parseFloat(s) || 0;
+}
+function fmtTC(s) {
+    if (!s || s < 0) s = 0;
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+function fmtTCFull(s) {
+    if (!s || s < 0) s = 0;
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60), ms = Math.floor((s % 1) * 1000);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+}
+function fmtSrtTC(s) {
+    if (!s || s < 0) s = 0;
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sc = Math.floor(s % 60), ms = Math.floor((s % 1) * 1000);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sc).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+}
+function fmtTCEdit(s) {
+    if (!s || s < 0) s = 0;
+    s = Math.round(s * 10) / 10;
+    const m = Math.floor(s / 60), sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${sec.toFixed(1).padStart(4, '0')}`;
+}
+function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+function escXml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+// ════════════════════════════════════════════════
+// RENDER: SOURCE
+// ════════════════════════════════════════════════
+function renderSrc() {
+    const el = document.getElementById('src-list');
+    document.getElementById('src-count').textContent = src.length;
+    document.getElementById('btn-srt-src').disabled = src.length === 0;
+    document.getElementById('btn-srt-fav').disabled = !src.some(s => s.fav);
+    document.getElementById('btn-save-proj').disabled = src.length === 0;
+    if (!src.length) { el.innerHTML = '<div class="empty"><p>Carga un .txt con timestamps</p></div>'; return; }
+    const usedIds = new Set(edit.map(e => e.sourceId));
+    el.innerHTML = src.map((s, i) => {
+        if (srcFilterFav && !s.fav) return '';
+        const used = usedIds.has(s.id);
+        const sel = srcSel.includes(i);
+        return `<div class="s-row${used ? ' used' : ''}${sel ? ' selected' : ''}${s.fav ? ' fav' : ''}" data-i="${i}">
+            <span class="fav-icon" onclick="event.stopPropagation();toggleFav(${i})" title="Favorito Shift+S">&#9829;</span>
+            <span class="tc"><span class="tc-in" data-panel="src" data-idx="${i}" data-field="start">${fmtTCEdit(s.start)}</span><span class="tc-sep">-</span><span class="tc-out" data-panel="src" data-idx="${i}" data-field="end">${fmtTCEdit(s.end)}</span></span>
+            <span class="txt" data-panel="src" data-idx="${i}">${esc(s.text)}</span>
+            <span class="actions">
+                <button class="row-btn split-btn" onclick="event.stopPropagation();doSplit('src',${i})" title="Dividir &#8984;X">&#9986;</button>
+                <button class="row-btn" onclick="event.stopPropagation();addToEdit(${i})" title="Agregar Shift+&#8594;">+</button>
+            </span>
+        </div>`;
+    }).join('');
+    bindSrcRows();
+    updateMergeBtns();
+}
+
+function bindSrcRows() {
+    document.querySelectorAll('#src-list .s-row').forEach(row => {
+        const i = parseInt(row.dataset.i);
+        const txtEl = row.querySelector('.txt');
+        row.addEventListener('click', e => {
+            activePanel = 'src';
+            if (inlineEditing || splitActive) return;
+            if (e.target.closest('.actions')) return;
+            if ((e.target.classList.contains('txt') || e.target.classList.contains('tc-in') || e.target.classList.contains('tc-out')) && e.detail === 2) return;
+            toggleSel('src', i, e.shiftKey);
+            seekSource(src[i].start);
+        });
+        row.addEventListener('dblclick', e => {
+            activePanel = 'src';
+            if (e.target.classList.contains('tc-in') || e.target.classList.contains('tc-out')) {
+                startTCEdit(e.target, 'src', i, e.target.dataset.field);
+            } else if (e.target.classList.contains('txt')) {
+                startInlineEdit(txtEl, 'src', i);
+            } else if (!e.target.closest('.actions')) {
+                addToEdit(i);
+            }
+        });
+    });
+}
+
+// ════════════════════════════════════════════════
+// RENDER: EDIT
+// ════════════════════════════════════════════════
+function renderEdit() {
+    const el = document.getElementById('edit-list');
+    const n = edit.length;
+    document.getElementById('edit-count').textContent = n;
+
+    const has = n > 0;
+    document.getElementById('btn-xml').disabled = !has;
+    document.getElementById('btn-edl').disabled = !has;
+    document.getElementById('btn-srt').disabled = !has;
+    document.getElementById('btn-export-txt').disabled = !has;
+    document.getElementById('btn-clear').disabled = !has;
+
+    const ecPlay = document.getElementById('ec-play');
+    const ecStop = document.getElementById('ec-stop');
+    if (ecPlay) ecPlay.disabled = !has || !editVideo;
+    if (ecStop) ecStop.disabled = !has;
+
+    // Show/hide edit video + controls
+    const editWrap = document.getElementById('edit-video-wrap');
+    const editPh = document.getElementById('edit-placeholder');
+    const editCtrl = document.getElementById('edit-controls');
+    if (has && editVideo) {
+        editWrap.classList.remove('hidden');
+        editPh.classList.add('hidden');
+        editCtrl.classList.remove('hidden');
+        if (!editPlayActive && editPlayIdx < 0 && edit.length > 0) {
+            editVideo.currentTime = edit[0].start;
+        }
+    } else {
+        editWrap.classList.add('hidden');
+        editCtrl.classList.add('hidden');
+        if (!editVideo) editPh.classList.remove('hidden');
+        else editPh.textContent = has ? 'Carga media para previsualizar' : 'Agrega clips para previsualizar';
+    }
+
+    if (!has) {
+        el.innerHTML = '<div class="empty"><p>Dblclick en la transcripcion para agregar clips</p></div>';
+        document.getElementById('edit-stats').textContent = '';
+        return;
+    }
+
+    const dur = edit.reduce((a, s) => a + (s.end - s.start), 0);
+    document.getElementById('edit-stats').textContent = `${n} clips / ${fmtTC(dur)}`;
+
+    el.innerHTML = edit.map((s, i) => {
+        const sel = editSel.includes(i);
+        return `<div class="e-row${sel ? ' selected' : ''}" data-ei="${i}">
+            <span class="grip" data-drag-handle>&vellip;&vellip;</span>
+            <span class="num">${i + 1}</span>
+            <span class="tc"><span class="tc-in" data-panel="edit" data-idx="${i}" data-field="start">${fmtTCEdit(s.start)}</span><span class="tc-sep">-</span><span class="tc-out" data-panel="edit" data-idx="${i}" data-field="end">${fmtTCEdit(s.end)}</span></span>
+            <span class="txt" data-panel="edit" data-idx="${i}">${esc(s.text)}</span>
+            <span class="actions">
+                <button class="row-btn split-btn" onclick="event.stopPropagation();doSplit('edit',${i})" title="Dividir">&#9986;</button>
+                <button class="row-btn del-btn" onclick="event.stopPropagation();removeFromEdit(${i})" title="Eliminar">&times;</button>
+            </span>
+        </div>`;
+    }).join('');
+
+    initEditDrag();
+    bindEditRows();
+    updateMergeBtns();
+    drawTimeline();
+}
+
+function bindEditRows() {
+    document.querySelectorAll('#edit-list .e-row').forEach(row => {
+        const i = parseInt(row.dataset.ei);
+        const txtEl = row.querySelector('.txt');
+        row.addEventListener('click', e => {
+            activePanel = 'edit';
+            if (inlineEditing || splitActive) return;
+            if (e.target.closest('.actions') || e.target.closest('[data-drag-handle]')) return;
+            if ((e.target.classList.contains('txt') || e.target.classList.contains('tc-in') || e.target.classList.contains('tc-out')) && e.detail === 2) return;
+            toggleSel('edit', i, e.shiftKey);
+            seekEditClip(i);
+        });
+        row.addEventListener('dblclick', e => {
+            activePanel = 'edit';
+            if (e.target.classList.contains('tc-in') || e.target.classList.contains('tc-out')) {
+                startTCEdit(e.target, 'edit', i, e.target.dataset.field);
+            } else if (e.target.classList.contains('txt')) {
+                startInlineEdit(txtEl, 'edit', i);
+            }
+        });
+    });
+}
+
+// ════════════════════════════════════════════════
+// SELECTION
+// ════════════════════════════════════════════════
+function toggleSel(panel, idx, shift) {
+    const sel = panel === 'src' ? srcSel : editSel;
+    const lastKey = panel === 'src' ? 'lastSrcClick' : 'lastEditClick';
+    if (shift && window[lastKey] >= 0) {
+        const from = Math.min(window[lastKey], idx);
+        const to = Math.max(window[lastKey], idx);
+        sel.length = 0;
+        for (let i = from; i <= to; i++) {
+            if (panel === 'src' && srcFilterFav && !src[i].fav) continue;
+            sel.push(i);
+        }
+    } else {
+        const pos = sel.indexOf(idx);
+        if (pos >= 0) sel.splice(pos, 1);
+        else { sel.length = 0; sel.push(idx); }
+        window[lastKey] = idx;
+    }
+    if (panel === 'src') srcSel = [...sel]; else editSel = [...sel];
+    updateSelUI(panel);
+    updateMergeBtns();
+}
+
+function updateSelUI(panel) {
+    if (panel === 'src') {
+        document.querySelectorAll('#src-list .s-row').forEach(r => {
+            r.classList.toggle('selected', srcSel.includes(parseInt(r.dataset.i)));
+        });
+    } else {
+        document.querySelectorAll('#edit-list .e-row').forEach(r => {
+            r.classList.toggle('selected', editSel.includes(parseInt(r.dataset.ei)));
+        });
+    }
+}
+
+function updateMergeBtns() {
+    document.getElementById('btn-merge-src').classList.toggle('hidden', srcSel.length < 2);
+    document.getElementById('btn-merge-edit').classList.toggle('hidden', editSel.length < 2);
+}
+
+function clearSel() {
+    srcSel = []; editSel = []; lastSrcClick = -1; lastEditClick = -1;
+    updateSelUI('src'); updateSelUI('edit'); updateMergeBtns();
+}
+
+// ════════════════════════════════════════════════
+// NAVIGATION (arrow keys)
+// ════════════════════════════════════════════════
+function moveCursor(panel, dir) {
+    const arr = panel === 'src' ? src : edit;
+    const sel = panel === 'src' ? srcSel : editSel;
+    if (!arr.length) return;
+    let current = sel.length > 0 ? sel[sel.length - 1] : (dir > 0 ? -1 : arr.length);
+    let next = current + dir;
+    if (panel === 'src' && srcFilterFav) {
+        while (next >= 0 && next < arr.length && !arr[next].fav) next += dir;
+    }
+    if (next < 0 || next >= arr.length) return;
+    sel.length = 0; sel.push(next);
+    if (panel === 'src') { srcSel = [...sel]; lastSrcClick = next; }
+    else { editSel = [...sel]; lastEditClick = next; }
+    updateSelUI(panel); updateMergeBtns();
+    scrollToRow(panel, next);
+}
+
+function extendSelection(panel, dir) {
+    const arr = panel === 'src' ? src : edit;
+    const sel = panel === 'src' ? srcSel : editSel;
+    if (!arr.length) return;
+    if (sel.length === 0) {
+        let start = dir > 0 ? 0 : arr.length - 1;
+        if (panel === 'src' && srcFilterFav) {
+            while (start >= 0 && start < arr.length && !arr[start].fav) start += dir;
+            if (start < 0 || start >= arr.length) return;
+        }
+        sel.push(start);
+    } else {
+        const sorted = [...sel].sort((a, b) => a - b);
+        let next = dir < 0 ? sorted[0] - 1 : sorted[sorted.length - 1] + 1;
+        if (panel === 'src' && srcFilterFav) {
+            while (next >= 0 && next < arr.length && !arr[next].fav) next += dir;
+        }
+        if (next < 0 || next >= arr.length) return;
+        if (!sel.includes(next)) sel.push(next);
+    }
+    if (panel === 'src') srcSel = [...sel]; else editSel = [...sel];
+    updateSelUI(panel); updateMergeBtns();
+    const sorted = [...sel].sort((a, b) => a - b);
+    scrollToRow(panel, dir < 0 ? sorted[0] : sorted[sorted.length - 1]);
+}
+
+function scrollToRow(panel, idx) {
+    const sel = panel === 'src' ? `.s-row[data-i="${idx}"]` : `.e-row[data-ei="${idx}"]`;
+    const row = document.querySelector(sel);
+    if (!row) return;
+    const container = document.getElementById(panel === 'src' ? 'src-list' : 'edit-list');
+    const rr = row.getBoundingClientRect();
+    const cr = container.getBoundingClientRect();
+    if (rr.top < cr.top || rr.bottom > cr.bottom) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ════════════════════════════════════════════════
+// SYNC TOGGLE
+// ════════════════════════════════════════════════
+function toggleSync(panel) {
+    if (panel === 'src') {
+        srcSyncScroll = !srcSyncScroll;
+        const btn = document.getElementById('btn-sync-src');
+        btn.innerHTML = srcSyncScroll ? 'Sync &#10003;' : 'Sync';
+        btn.classList.toggle('btn-sync-off', !srcSyncScroll);
+    } else {
+        editSyncScroll = !editSyncScroll;
+        const btn = document.getElementById('btn-sync-edit');
+        btn.innerHTML = editSyncScroll ? 'Sync &#10003;' : 'Sync';
+        btn.classList.toggle('btn-sync-off', !editSyncScroll);
+    }
+}
+
+// ════════════════════════════════════════════════
+// MERGE
+// ════════════════════════════════════════════════
+function doMerge(panel) {
+    const sel = panel === 'src' ? srcSel : editSel;
+    const arr = panel === 'src' ? src : edit;
+    if (sel.length < 2) return;
+    const sorted = [...sel].sort((a, b) => a - b);
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] !== sorted[i - 1] + 1) { alert('Selecciona subtitulos consecutivos'); return; }
+    }
+    pushHistory();
+    const first = arr[sorted[0]];
+    const last = arr[sorted[sorted.length - 1]];
+    const merged = {
+        id: first.id,
+        sourceId: first.sourceId !== undefined ? first.sourceId : first.id,
+        start: first.start, end: last.end,
+        text: sorted.map(i => arr[i].text).join(' ')
+    };
+    if (panel === 'src') {
+        const mergedIds = sorted.map(j => arr[j].id);
+        merged.fav = sorted.some(j => arr[j].fav);
+        arr.splice(sorted[0], sorted.length, merged);
+        edit.forEach(e => { if (mergedIds.includes(e.sourceId)) e.sourceId = merged.id; });
+        srcSel = [];
+    } else {
+        arr.splice(sorted[0], sorted.length, merged);
+        editSel = [];
+    }
+    renderSrc(); renderEdit();
+}
+
+// ════════════════════════════════════════════════
+// SPLIT
+// ════════════════════════════════════════════════
+function doSplit(panel, index) {
+    if (splitActive) cancelSplit(true);
+    if (inlineEditing) return;
+    splitActive = true; splitPanel = panel; splitIdx = index;
+    const arr = panel === 'src' ? src : edit;
+    const seg = arr[index];
+    const words = seg.text.split(/\s+/);
+    if (words.length < 2) { cancelSplit(true); return; }
+    const rowSel = panel === 'src' ? `.s-row[data-i="${index}"]` : `.e-row[data-ei="${index}"]`;
+    const row = document.querySelector(rowSel);
+    if (!row) { cancelSplit(true); return; }
+    row.classList.add('split-row');
+    const txtEl = row.querySelector('.txt');
+    let html = '<span class="split-words">';
+    for (let w = 0; w < words.length; w++) {
+        html += `<span class="word">${esc(words[w])}</span>`;
+        if (w < words.length - 1) html += `<span class="split-point" data-sp="${w}"> </span>`;
+    }
+    html += '</span>';
+    txtEl.innerHTML = html;
+    txtEl.querySelectorAll('.split-point').forEach(sp => {
+        sp.addEventListener('click', e => { e.stopPropagation(); executeSplit(panel, index, parseInt(sp.dataset.sp)); });
+    });
+    // Overlay + hint banner
+    const ov = document.createElement('div'); ov.className = 'split-overlay'; ov.id = 'split-overlay';
+    ov.addEventListener('click', () => cancelSplit());
+    document.body.appendChild(ov);
+    const hint = document.createElement('div'); hint.className = 'split-hint'; hint.id = 'split-hint';
+    hint.textContent = 'DIVIDIR — click entre palabras \u2022 Esc cancelar';
+    document.body.appendChild(hint);
+}
+
+function executeSplit(panel, index, wordPos) {
+    const arr = panel === 'src' ? src : edit;
+    const seg = arr[index];
+    const words = seg.text.split(/\s+/);
+    pushHistory();
+    const txtA = words.slice(0, wordPos + 1).join(' ');
+    const txtB = words.slice(wordPos + 1).join(' ');
+    const ratio = txtA.length / seg.text.length;
+    const mid = seg.start + (seg.end - seg.start) * ratio;
+    const s1 = { id: seg.id, sourceId: seg.sourceId !== undefined ? seg.sourceId : seg.id, start: seg.start, end: mid, text: txtA };
+    const s2 = { id: panel === 'src' ? nextSrcId++ : seg.id, sourceId: seg.sourceId !== undefined ? seg.sourceId : seg.id, start: mid, end: seg.end, text: txtB };
+    if (panel === 'src') { s1.fav = seg.fav; s2.fav = seg.fav; }
+    arr.splice(index, 1, s1, s2);
+    cancelSplit(true);
+    renderSrc(); renderEdit();
+}
+
+function cancelSplit(skipRender) {
+    splitActive = false; splitPanel = null; splitIdx = -1;
+    const ov = document.getElementById('split-overlay'); if (ov) ov.remove();
+    const hint = document.getElementById('split-hint'); if (hint) hint.remove();
+    document.querySelectorAll('.split-row').forEach(r => r.classList.remove('split-row'));
+    if (!skipRender) { renderSrc(); renderEdit(); }
+}
+
+// ════════════════════════════════════════════════
+// INLINE TEXT EDIT
+// ════════════════════════════════════════════════
+function startInlineEdit(el, panel, index) {
+    if (splitActive) return;
+    inlineEditing = true;
+    const arr = panel === 'src' ? src : edit;
+    const backup = arr[index].text;
+    el.setAttribute('contenteditable', 'true');
+    el.focus();
+    const range = document.createRange(); range.selectNodeContents(el);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(range);
+    const commit = () => {
+        const newText = el.textContent.trim();
+        if (newText && newText !== backup) {
+            pushHistory();
+            arr[index].text = newText;
+            if (panel === 'src') {
+                const srcItem = src[index];
+                edit.forEach(e => { if (e.sourceId === srcItem.id && e.text === backup) e.text = newText; });
+                renderEdit();
+            }
+        }
+        el.removeAttribute('contenteditable'); inlineEditing = false; cleanup();
+    };
+    const cancel = () => { el.textContent = backup; el.removeAttribute('contenteditable'); inlineEditing = false; cleanup(); };
+    const onKey = e => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+        e.stopPropagation();
+    };
+    const onBlur = () => commit();
+    const cleanup = () => { el.removeEventListener('keydown', onKey); el.removeEventListener('blur', onBlur); };
+    el.addEventListener('keydown', onKey);
+    el.addEventListener('blur', onBlur);
+}
+
+function startTCEdit(el, panel, index, field) {
+    if (splitActive || inlineEditing) return;
+    inlineEditing = true;
+    const arr = panel === 'src' ? src : edit;
+    const backup = arr[index][field];
+    const backupText = el.textContent;
+    el.setAttribute('contenteditable', 'true');
+    el.focus();
+    const range = document.createRange(); range.selectNodeContents(el);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(range);
+    const commit = () => {
+        const raw = el.textContent.trim();
+        let val = parseTC(raw);
+        if (isNaN(val) || val < 0) val = backup;
+        // Anti-solapamiento
+        if (field === 'start') {
+            const minVal = index > 0 ? arr[index - 1].end : 0;
+            const maxVal = arr[index].end - 0.1;
+            val = Math.max(minVal, Math.min(val, maxVal));
+        } else {
+            const minVal = arr[index].start + 0.1;
+            const maxVal = index < arr.length - 1 ? arr[index + 1].start : (mediaDur || 99999);
+            val = Math.max(minVal, Math.min(val, maxVal));
+        }
+        val = Math.round(val * 10) / 10;
+        if (val !== backup) {
+            pushHistory();
+            arr[index][field] = val;
+            // Propagar a edit si estamos en src
+            if (panel === 'src') {
+                const srcItem = src[index];
+                edit.forEach(e => { if (e.sourceId === srcItem.id) e[field] = val; });
+            }
+            renderSrc(); renderEdit();
+        } else {
+            el.textContent = backupText;
+            el.removeAttribute('contenteditable');
+        }
+        inlineEditing = false; cleanup();
+    };
+    const cancel = () => { el.textContent = backupText; el.removeAttribute('contenteditable'); inlineEditing = false; cleanup(); };
+    const onKey = e => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+        e.stopPropagation();
+    };
+    const onBlur = () => commit();
+    const cleanup = () => { el.removeEventListener('keydown', onKey); el.removeEventListener('blur', onBlur); };
+    el.addEventListener('keydown', onKey);
+    el.addEventListener('blur', onBlur);
+}
+
+// ════════════════════════════════════════════════
+// EDIT OPERATIONS
+// ════════════════════════════════════════════════
+function addToEdit(i) {
+    const s = src[i];
+    if (edit.some(e => e.sourceId === s.id)) return;
+    pushHistory();
+    edit.push({ sourceId: s.id, start: s.start, end: s.end, text: s.text });
+    renderEdit(); renderSrc();
+}
+
+function removeFromEdit(i) {
+    pushHistory();
+    edit.splice(i, 1); editSel = [];
+    renderEdit(); renderSrc();
+}
+
+function clearEdit() {
+    if (!edit.length) return;
+    pushHistory();
+    edit = []; editSel = [];
+    stopEditPlay();
+    renderEdit(); renderSrc();
+}
+
+function toggleFav(i) {
+    pushHistory();
+    src[i].fav = !src[i].fav;
+    renderSrc();
+}
+
+function toggleFilterFav() {
+    srcFilterFav = !srcFilterFav;
+    document.getElementById('btn-filter-fav').classList.toggle('btn-sync-off', !srcFilterFav);
+    srcSel = [];
+    renderSrc();
+}
+
+function createSubtitle() {
+    let startTime = 0;
+    if (sourceVideo && !isNaN(sourceVideo.currentTime)) {
+        startTime = sourceVideo.currentTime;
+    } else {
+        const input = window.prompt('Tiempo de inicio (MM:SS o SS):');
+        if (!input) return;
+        const parts = input.trim().split(':');
+        if (parts.length === 2) startTime = parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+        else startTime = parseFloat(parts[0]);
+        if (isNaN(startTime)) { alert('Tiempo invalido'); return; }
+    }
+    let endTime = startTime + 3;
+    // Find insert position and avoid overlap with next subtitle
+    let insertIdx = src.length;
+    for (let i = 0; i < src.length; i++) {
+        if (src[i].start >= startTime) {
+            insertIdx = i;
+            if (src[i].start < endTime) endTime = src[i].start;
+            break;
+        }
+    }
+    if (endTime <= startTime) endTime = startTime + 0.5;
+    pushHistory();
+    const newSub = { id: nextSrcId++, start: startTime, end: endTime, text: ' ', fav: srcFilterFav };
+    src.splice(insertIdx, 0, newSub);
+    srcSel = [insertIdx];
+    activePanel = 'src';
+    renderSrc(); renderEdit();
+    // Activate inline edit on the new subtitle
+    setTimeout(() => {
+        const row = document.querySelector(`#src-list .s-row[data-i="${insertIdx}"]`);
+        if (row) {
+            row.scrollIntoView({ block: 'center' });
+            const txtEl = row.querySelector('.txt');
+            if (txtEl) startInlineEdit(txtEl, 'src', insertIdx);
+        }
+    }, 50);
+}
+
+// ════════════════════════════════════════════════
+// DRAG REORDER
+// ════════════════════════════════════════════════
+let drag = { active: false, fromIdx: -1, ghost: null, indicator: null, toIdx: -1 };
+
+function initEditDrag() {
+    document.getElementById('edit-list').querySelectorAll('.e-row').forEach(row => {
+        const handle = row.querySelector('[data-drag-handle]');
+        if (!handle) return;
+        handle.addEventListener('pointerdown', e => {
+            if (inlineEditing || splitActive) return;
+            e.preventDefault();
+            startDrag(parseInt(row.dataset.ei), e.clientX, e.clientY, row);
+        });
+    });
+}
+
+function startDrag(idx, x, y, rowEl) {
+    drag.active = true; drag.fromIdx = idx; drag.toIdx = idx;
+    rowEl.classList.add('is-dragging');
+    const ghost = document.createElement('div'); ghost.className = 'e-row-ghost';
+    ghost.innerHTML = `<span class="tc">${fmtTC(edit[idx].start)}</span> ${esc(edit[idx].text)}`;
+    ghost.style.left = (x + 12) + 'px'; ghost.style.top = (y - 14) + 'px';
+    document.body.appendChild(ghost); drag.ghost = ghost;
+    const ind = document.createElement('div'); ind.className = 'drop-indicator'; ind.style.display = 'none';
+    document.getElementById('edit-list').appendChild(ind); drag.indicator = ind;
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+}
+
+function onDragMove(e) {
+    if (!drag.active) return;
+    drag.ghost.style.left = (e.clientX + 12) + 'px'; drag.ghost.style.top = (e.clientY - 14) + 'px';
+    const list = document.getElementById('edit-list');
+    const rows = list.querySelectorAll('.e-row');
+    let ti = edit.length;
+    for (let i = 0; i < rows.length; i++) {
+        const r = rows[i].getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { ti = i; break; }
+    }
+    drag.toIdx = ti;
+    if (rows.length > 0) {
+        const lr = list.getBoundingClientRect();
+        let iy;
+        if (ti < rows.length) iy = rows[ti].getBoundingClientRect().top - lr.top + list.scrollTop;
+        else { const last = rows[rows.length - 1].getBoundingClientRect(); iy = last.bottom - lr.top + list.scrollTop; }
+        drag.indicator.style.display = 'block'; drag.indicator.style.top = iy + 'px';
+    }
+    const lr = list.getBoundingClientRect();
+    if (e.clientY < lr.top + 40) list.scrollTop -= 8;
+    else if (e.clientY > lr.bottom - 40) list.scrollTop += 8;
+}
+
+function onDragEnd() {
+    if (!drag.active) return;
+    document.removeEventListener('pointermove', onDragMove);
+    document.removeEventListener('pointerup', onDragEnd);
+    if (drag.ghost) { drag.ghost.remove(); drag.ghost = null; }
+    if (drag.indicator) { drag.indicator.remove(); drag.indicator = null; }
+    document.querySelectorAll('.e-row.is-dragging').forEach(r => r.classList.remove('is-dragging'));
+    const from = drag.fromIdx; let to = drag.toIdx; drag.active = false;
+    if (from === to || from === to - 1) return;
+    pushHistory();
+    const item = edit.splice(from, 1)[0];
+    if (to > from) to--;
+    edit.splice(to, 0, item);
+    editSel = [];
+    renderEdit();
+}
+
+// ════════════════════════════════════════════════
+// SOURCE VIDEO (LEFT)
+// ════════════════════════════════════════════════
+function seekSource(time) {
+    if (!sourceVideo) return;
+    sourceVideo.currentTime = time;
+    if (sourceVideo.paused) sourceVideo.play();
+}
+
+function seekEditClip(clipIdx) {
+    if (!editVideo || clipIdx < 0 || clipIdx >= edit.length) return;
+    if (editPlayActive) stopEditPlay();
+    editPlayActive = true;
+    editPlayIdx = clipIdx;
+    editVideo.currentTime = edit[clipIdx].start;
+    editVideo.play();
+    document.getElementById('ec-play').innerHTML = '&#10074;&#10074;';
+    document.getElementById('ec-play').classList.add('active');
+    document.querySelectorAll('.e-row.playing').forEach(r => r.classList.remove('playing'));
+    const row = document.querySelector(`.e-row[data-ei="${clipIdx}"]`);
+    if (row) row.classList.add('playing');
+    startTlAnimation();
+}
+
+function setSpeed(sp) {
+    if (sourceVideo) sourceVideo.playbackRate = sp;
+    if (editVideo) editVideo.playbackRate = sp;
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.speed) === sp));
+}
+
+// Source tick
+function sourceTick() {
+    if (!sourceVideo) return;
+    const t = sourceVideo.currentTime;
+    document.querySelectorAll('.s-row.current').forEach(r => r.classList.remove('current'));
+    for (let i = 0; i < src.length; i++) {
+        if (t >= src[i].start && t < src[i].end) {
+            const r = document.querySelector(`.s-row[data-i="${i}"]`);
+            if (r) {
+                r.classList.add('current');
+                if (!sourceVideo.paused && srcSyncScroll) {
+                    const rect = r.getBoundingClientRect();
+                    const cont = document.getElementById('src-list');
+                    const cr = cont.getBoundingClientRect();
+                    if (rect.top < cr.top || rect.bottom > cr.bottom) r.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            break;
+        }
+    }
+}
+
+// ════════════════════════════════════════════════
+// EDIT VIDEO (RIGHT) — Playback engine
+// ════════════════════════════════════════════════
+function toggleEditPlay() {
+    if (!editVideo || !edit.length) return;
+    if (editPlayActive) {
+        editVideo.pause();
+        editPlayActive = false;
+        document.getElementById('ec-play').innerHTML = '&#9654;';
+        document.getElementById('ec-play').classList.remove('active');
+        return;
+    }
+    editPlayActive = true;
+    if (editPlayIdx < 0 || editPlayIdx >= edit.length) editPlayIdx = 0;
+    document.getElementById('ec-play').innerHTML = '&#10074;&#10074;';
+    document.getElementById('ec-play').classList.add('active');
+    editVideo.currentTime = edit[editPlayIdx].start;
+    editVideo.play();
+    startTlAnimation();
+}
+
+function stopEditPlay() {
+    editPlayActive = false; editPlayIdx = -1;
+    if (editVideo) editVideo.pause();
+    document.getElementById('ec-play').innerHTML = '&#9654;';
+    document.getElementById('ec-play').classList.remove('active');
+    document.getElementById('ec-time').textContent = '00:00 / 00:00';
+    document.getElementById('ec-clip').textContent = '';
+    document.getElementById('edit-overlay-clip').textContent = '';
+    document.getElementById('edit-overlay-time').textContent = '';
+    document.querySelectorAll('.e-row.playing').forEach(r => r.classList.remove('playing'));
+    stopTlAnimation();
+}
+
+function editTick() {
+    if (!editVideo || !editPlayActive || editPlayIdx < 0 || editPlayIdx >= edit.length) return;
+    const seg = edit[editPlayIdx];
+    const t = editVideo.currentTime;
+
+    document.querySelectorAll('.e-row.playing').forEach(r => r.classList.remove('playing'));
+    const row = document.querySelector(`.e-row[data-ei="${editPlayIdx}"]`);
+    if (row) {
+        row.classList.add('playing');
+        if (editSyncScroll) {
+            const er = row.getBoundingClientRect();
+            const ec = document.getElementById('edit-list');
+            const ecr = ec.getBoundingClientRect();
+            if (er.top < ecr.top || er.bottom > ecr.bottom) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    let elapsed = 0;
+    for (let j = 0; j < editPlayIdx; j++) elapsed += (edit[j].end - edit[j].start);
+    elapsed += Math.max(0, t - seg.start);
+    const totalDur = edit.reduce((a, s) => a + (s.end - s.start), 0);
+    document.getElementById('ec-time').textContent = `${fmtTC(elapsed)} / ${fmtTC(totalDur)}`;
+    document.getElementById('ec-clip').textContent = `clip ${editPlayIdx + 1}/${edit.length}`;
+    document.getElementById('edit-overlay-clip').textContent = `${editPlayIdx + 1}/${edit.length}`;
+    document.getElementById('edit-overlay-time').textContent = fmtTC(elapsed);
+
+    if (t >= seg.end - 0.05) {
+        editPlayIdx++;
+        if (editPlayIdx < edit.length) {
+            editVideo.currentTime = edit[editPlayIdx].start;
+        } else {
+            stopEditPlay();
+        }
+    }
+}
+
+// ════════════════════════════════════════════════
+// TIMELINE
+// ════════════════════════════════════════════════
+function initTimeline() {
+    tlCanvas = document.getElementById('timeline-canvas');
+    tlCtx = tlCanvas.getContext('2d');
+    const wrap = document.getElementById('timeline-wrap');
+
+    tlCanvas.addEventListener('mousedown', tlMouseDown);
+    tlCanvas.addEventListener('mousemove', tlMouseMove);
+    tlCanvas.addEventListener('mouseup', tlMouseUp);
+    tlCanvas.addEventListener('mouseleave', tlMouseUp);
+
+    window.addEventListener('resize', () => { if (edit.length) drawTimeline(); });
+}
+
+function tlGetMetrics() {
+    const wrap = document.getElementById('timeline-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = rect.width, h = rect.height;
+    tlCanvas.width = w * dpr;
+    tlCanvas.height = h * dpr;
+    tlCanvas.style.width = w + 'px';
+    tlCanvas.style.height = h + 'px';
+    tlCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const totalDur = edit.reduce((a, s) => a + (s.end - s.start), 0);
+    const pxPerSec = totalDur > 0 ? w / totalDur : 1;
+    return { w, h, dpr, totalDur, pxPerSec };
+}
+
+function drawTimeline() {
+    const wrap = document.getElementById('timeline-wrap');
+    if (!edit.length) { wrap.classList.remove('visible'); return; }
+    wrap.classList.add('visible');
+
+    const { w, h, totalDur, pxPerSec } = tlGetMetrics();
+    const ctx = tlCtx;
+    const rulerH = 18;
+    const clipY = rulerH + 2;
+    const clipH = h - clipY - 2;
+
+    // Clear
+    ctx.clearRect(0, 0, w, h);
+
+    // Ruler background
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, w, rulerH);
+
+    // Ruler marks (adaptive interval)
+    const interval = calcRulerInterval(totalDur, w);
+    ctx.fillStyle = '#555';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.textBaseline = 'top';
+    for (let t = 0; t <= totalDur; t += interval) {
+        const x = t * pxPerSec;
+        ctx.fillRect(x, rulerH - 6, 1, 6);
+        if (x + 40 < w) ctx.fillText(fmtTC(t), x + 3, 2);
+    }
+
+    // Clips
+    let cx = 0;
+    edit.forEach((clip, i) => {
+        const dur = clip.end - clip.start;
+        const cw = dur * pxPerSec;
+
+        // Background
+        const isPlaying = editPlayActive && editPlayIdx === i;
+        const isSel = editSel.includes(i);
+        ctx.fillStyle = isPlaying ? '#2a2a2a' : '#1a1a1a';
+        ctx.fillRect(cx + 0.5, clipY, cw - 1, clipH);
+
+        // Border
+        ctx.strokeStyle = isSel ? '#ffd94a' : isPlaying ? '#ff4444' : '#333';
+        ctx.lineWidth = isSel ? 1.5 : 1;
+        ctx.strokeRect(cx + 0.5, clipY, cw - 1, clipH);
+
+        // Label
+        if (cw > 20) {
+            ctx.fillStyle = isPlaying ? '#fff' : '#888';
+            ctx.font = '9px Inter, sans-serif';
+            const label = `${i + 1}`;
+            const maxTxtW = cw - 8;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(cx + 2, clipY, cw - 4, clipH);
+            ctx.clip();
+            ctx.fillText(label, cx + 4, clipY + 4);
+            if (cw > 50) {
+                ctx.fillStyle = isPlaying ? '#ccc' : '#555';
+                ctx.font = '8px Inter, sans-serif';
+                const txt = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
+                ctx.fillText(txt, cx + 4, clipY + 16);
+            }
+            ctx.restore();
+        }
+
+        // Trim handles (visual hint)
+        if (cw > 16) {
+            ctx.fillStyle = isSel ? 'rgba(255,217,74,0.3)' : 'rgba(255,255,255,0.06)';
+            ctx.fillRect(cx + 0.5, clipY, 4, clipH);
+            ctx.fillRect(cx + cw - 4.5, clipY, 4, clipH);
+        }
+
+        cx += cw;
+    });
+
+    // Playhead
+    drawPlayhead(w, h, pxPerSec, rulerH);
+}
+
+function drawPlayhead(w, h, pxPerSec, rulerH) {
+    if (!editPlayActive || editPlayIdx < 0 || !editVideo) return;
+    const ctx = tlCtx;
+    let elapsed = 0;
+    for (let j = 0; j < editPlayIdx; j++) elapsed += (edit[j].end - edit[j].start);
+    const seg = edit[editPlayIdx];
+    if (seg) elapsed += Math.max(0, editVideo.currentTime - seg.start);
+    const x = elapsed * pxPerSec;
+
+    ctx.save();
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+
+    // Playhead triangle
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.moveTo(x - 5, 0);
+    ctx.lineTo(x + 5, 0);
+    ctx.lineTo(x, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+function tlAnimatePlayhead() {
+    if (!editPlayActive) { tlRAFId = null; return; }
+    drawTimeline();
+    tlRAFId = requestAnimationFrame(tlAnimatePlayhead);
+}
+
+function startTlAnimation() {
+    if (tlRAFId) return;
+    tlRAFId = requestAnimationFrame(tlAnimatePlayhead);
+}
+
+function stopTlAnimation() {
+    if (tlRAFId) { cancelAnimationFrame(tlRAFId); tlRAFId = null; }
+    drawTimeline();
+}
+
+function calcRulerInterval(totalDur, width) {
+    const targets = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+    const minPxBetween = 60;
+    for (const t of targets) {
+        if ((t / totalDur) * width >= minPxBetween) return t;
+    }
+    return 600;
+}
+
+// ── Timeline mouse interactions ──
+
+function tlHitTest(mx, my) {
+    if (!edit.length) return null;
+    const { w, h, pxPerSec } = tlGetMetrics();
+    const rulerH = 18;
+    if (my < rulerH) return { type: 'ruler', time: mx / pxPerSec };
+
+    let cx = 0;
+    for (let i = 0; i < edit.length; i++) {
+        const dur = edit[i].end - edit[i].start;
+        const cw = dur * pxPerSec;
+        if (mx >= cx && mx < cx + cw) {
+            const localX = mx - cx;
+            if (localX < 6) return { type: 'trim-left', idx: i, cx, cw };
+            if (localX > cw - 6) return { type: 'trim-right', idx: i, cx, cw };
+            return { type: 'clip', idx: i, cx, cw };
+        }
+        cx += cw;
+    }
+    return null;
+}
+
+function tlMouseDown(e) {
+    const rect = tlCanvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const hit = tlHitTest(mx, my);
+    if (!hit) return;
+
+    if (hit.type === 'ruler') {
+        // Click on ruler: seek to time position
+        tlSeekToTime(hit.time);
+        return;
+    }
+
+    if (hit.type === 'clip') {
+        // Select + seek
+        editSel = [hit.idx];
+        lastEditClick = hit.idx;
+        activePanel = 'edit';
+        updateSelUI('edit'); updateMergeBtns();
+        seekEditClip(hit.idx);
+
+        // Start drag-to-reorder
+        tlDrag = { active: true, type: 'reorder', idx: hit.idx, startX: mx, origStart: 0, origEnd: 0, origOrder: edit.map((_, i) => i) };
+        return;
+    }
+
+    if (hit.type === 'trim-left' || hit.type === 'trim-right') {
+        pushHistory();
+        const clip = edit[hit.idx];
+        tlDrag = { active: true, type: hit.type, idx: hit.idx, startX: mx, origStart: clip.start, origEnd: clip.end, origOrder: null };
+        return;
+    }
+}
+
+function tlMouseMove(e) {
+    const rect = tlCanvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Cursor style
+    if (!tlDrag.active) {
+        const hit = tlHitTest(mx, my);
+        if (!hit) { tlCanvas.style.cursor = 'default'; return; }
+        if (hit.type === 'trim-left' || hit.type === 'trim-right') tlCanvas.style.cursor = 'col-resize';
+        else if (hit.type === 'clip') tlCanvas.style.cursor = 'grab';
+        else if (hit.type === 'ruler') tlCanvas.style.cursor = 'pointer';
+        return;
+    }
+
+    const { w, pxPerSec } = tlGetMetrics();
+    const dx = mx - tlDrag.startX;
+    const dtSec = dx / pxPerSec;
+    const clip = edit[tlDrag.idx];
+    if (!clip) return;
+
+    if (tlDrag.type === 'trim-left') {
+        let newStart = tlDrag.origStart + dtSec;
+        newStart = Math.max(0, Math.min(newStart, clip.end - 0.1));
+        clip.start = Math.round(newStart * 10) / 10;
+        drawTimeline();
+        renderEdit();
+    } else if (tlDrag.type === 'trim-right') {
+        let newEnd = tlDrag.origEnd + dtSec;
+        newEnd = Math.max(clip.start + 0.1, Math.min(newEnd, mediaDur || 99999));
+        clip.end = Math.round(newEnd * 10) / 10;
+        drawTimeline();
+        renderEdit();
+    } else if (tlDrag.type === 'reorder') {
+        tlCanvas.style.cursor = 'grabbing';
+        // Calculate target position
+        let cx = 0, targetIdx = edit.length;
+        for (let i = 0; i < edit.length; i++) {
+            const dur = edit[i].end - edit[i].start;
+            const cw = dur * pxPerSec;
+            if (mx < cx + cw / 2) { targetIdx = i; break; }
+            cx += cw;
+        }
+        if (targetIdx !== tlDrag.idx && Math.abs(dx) > 5) {
+            pushHistory();
+            const [removed] = edit.splice(tlDrag.idx, 1);
+            if (targetIdx > tlDrag.idx) targetIdx--;
+            edit.splice(targetIdx, 0, removed);
+            tlDrag.idx = targetIdx;
+            tlDrag.startX = mx;
+            editSel = [targetIdx];
+            drawTimeline();
+            renderEdit();
+        }
+    }
+}
+
+function tlMouseUp(e) {
+    if (tlDrag.active) {
+        tlDrag.active = false;
+        tlCanvas.style.cursor = 'default';
+        drawTimeline();
+    }
+}
+
+function tlSeekToTime(time) {
+    if (!edit.length || !editVideo) return;
+    let cx = 0;
+    for (let i = 0; i < edit.length; i++) {
+        const dur = edit[i].end - edit[i].start;
+        if (time <= cx + dur) {
+            seekEditClip(i);
+            return;
+        }
+        cx += dur;
+    }
+    seekEditClip(edit.length - 1);
+}
+
+// ════════════════════════════════════════════════
+// FILE LOADING
+// ════════════════════════════════════════════════
+document.getElementById('fi-txt').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => { nextSrcId = 0; src = parseTXT(ev.target.result); edit = []; srcSel = []; editSel = []; initHistory(); renderSrc(); renderEdit(); };
+    r.readAsText(f); e.target.value = '';
+});
+
+document.getElementById('fi-media').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    loadMedia(f); e.target.value = '';
+});
+
+document.getElementById('fi-proj').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    loadProject(f); e.target.value = '';
+});
+
+function loadMedia(file) {
+    mediaName = file.name;
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    blobUrl = URL.createObjectURL(file);
+    isVideo = file.type.startsWith('video/');
+
+    // Source video (left)
+    const srcWrap = document.getElementById('source-video-wrap');
+    const srcPh = document.getElementById('source-placeholder');
+    const srcSB = document.getElementById('source-speed-bar');
+    if (isVideo)
+        srcWrap.innerHTML = `<video id="source-vid" controls style="width:100%;max-height:280px;display:block"><source src="${blobUrl}"></video>`;
+    else
+        srcWrap.innerHTML = `<audio id="source-vid" controls style="width:100%;padding:20px 14px"><source src="${blobUrl}"></audio>`;
+    srcWrap.classList.remove('hidden'); srcPh.classList.add('hidden'); srcSB.classList.remove('hidden');
+    sourceVideo = document.getElementById('source-vid');
+    sourceVideo.addEventListener('loadedmetadata', () => { mediaDur = sourceVideo.duration; });
+
+    // Edit video (right)
+    const editContainer = document.getElementById('edit-video-container');
+    if (isVideo)
+        editContainer.innerHTML = `<video id="edit-vid" style="width:100%;max-height:280px;display:block"><source src="${blobUrl}"></video>`;
+    else
+        editContainer.innerHTML = `<audio id="edit-vid" controls style="width:100%;padding:20px 14px"><source src="${blobUrl}"></audio>`;
+    editVideo = document.getElementById('edit-vid');
+
+    // Show edit video if clips exist
+    if (edit.length > 0) renderEdit();
+
+    // Ticks
+    if (srcTickId) clearInterval(srcTickId);
+    if (editTickId) clearInterval(editTickId);
+    srcTickId = setInterval(sourceTick, 80);
+    editTickId = setInterval(editTick, 60);
+    initTimeline();
+}
+
+// Speed buttons
+document.querySelectorAll('.speed-btn').forEach(b => {
+    b.addEventListener('click', () => setSpeed(parseFloat(b.dataset.speed)));
+});
+
+// Edit controls bar
+document.getElementById('ec-play').addEventListener('click', toggleEditPlay);
+document.getElementById('ec-stop').addEventListener('click', stopEditPlay);
+document.getElementById('ec-volume').addEventListener('input', e => {
+    if (editVideo) editVideo.volume = parseFloat(e.target.value);
+});
+document.getElementById('ec-fullscreen').addEventListener('click', () => {
+    const container = document.getElementById('edit-video-container');
+    if (!container) return;
+    if (container.requestFullscreen) container.requestFullscreen();
+    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+});
+
+// Drag-drop
+window.addEventListener('dragover', e => { e.preventDefault(); document.getElementById('dropOverlay').classList.add('visible'); });
+window.addEventListener('dragleave', e => { if (!e.relatedTarget) document.getElementById('dropOverlay').classList.remove('visible'); });
+window.addEventListener('drop', e => {
+    e.preventDefault();
+    document.getElementById('dropOverlay').classList.remove('visible');
+    const f = e.dataTransfer.files[0]; if (!f) return;
+    if (f.name.endsWith('.t2e')) {
+        loadProject(f);
+    } else if (f.name.endsWith('.txt')) {
+        const r = new FileReader();
+        r.onload = ev => { nextSrcId = 0; src = parseTXT(ev.target.result); edit = []; srcSel = []; editSel = []; initHistory(); renderSrc(); renderEdit(); };
+        r.readAsText(f);
+    } else if (f.type.startsWith('audio/') || f.type.startsWith('video/')) {
+        loadMedia(f);
+    }
+});
+
+// ════════════════════════════════════════════════
+// PROJECT SAVE / LOAD (.t2e)
+// ════════════════════════════════════════════════
+async function saveProject() {
+    const project = {
+        version: 1,
+        mediaName: mediaName,
+        mediaDur: mediaDur,
+        isVideo: isVideo,
+        src: src,
+        edit: edit
+    };
+    const jsonStr = JSON.stringify(project, null, 2);
+    const name = (mediaName ? mediaName.replace(/\.[^.]+$/, '') : 'proyecto') + '.t2e';
+    if (window.showSaveFilePicker) {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: name,
+                types: [{ description: 'Text2Edit Project', accept: { 'application/json': ['.t2e'] } }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(jsonStr);
+            await writable.close();
+            showSaveOk();
+            return;
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+        }
+    }
+    dlFile(jsonStr, name, 'application/json');
+    showSaveOk();
+}
+function showSaveOk() {
+    const btn = document.getElementById('btn-save-proj');
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.style.color = 'var(--green)';
+    btn.textContent = 'Guardado!';
+    setTimeout(() => { btn.style.color = ''; btn.textContent = orig; }, 1500);
+}
+
+function loadProject(file) {
+    const r = new FileReader();
+    r.onload = ev => {
+        try {
+            const p = JSON.parse(ev.target.result);
+            if (!p.src || !Array.isArray(p.src)) { alert('Archivo .t2e invalido'); return; }
+            src = p.src;
+            edit = p.edit || [];
+            mediaName = p.mediaName || '';
+            mediaDur = p.mediaDur || 0;
+            isVideo = p.isVideo !== undefined ? p.isVideo : false;
+            nextSrcId = src.length ? Math.max(...src.map(s => s.id)) + 1 : 0;
+            srcSel = []; editSel = [];
+            initHistory();
+            renderSrc(); renderEdit();
+            // Prompt to load media file
+            if (mediaName) {
+                const mediaInput = document.createElement('input');
+                mediaInput.type = 'file';
+                mediaInput.accept = 'audio/*,video/*';
+                mediaInput.style.display = 'none';
+                document.body.appendChild(mediaInput);
+                mediaInput.addEventListener('change', me => {
+                    const mf = me.target.files[0];
+                    if (mf) loadMedia(mf);
+                    mediaInput.remove();
+                });
+                setTimeout(() => {
+                    alert('Proyecto cargado. Selecciona el archivo media: ' + mediaName);
+                    mediaInput.click();
+                }, 100);
+            }
+        } catch (ex) {
+            alert('Error al leer proyecto: ' + ex.message);
+        }
+    };
+    r.readAsText(file);
+}
+
+// ════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+    if (inlineEditing) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const cmd = e.metaKey || e.ctrlKey;
+
+    // Cmd+Z = Undo, Cmd+Shift+Z = Redo
+    if (cmd && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if (cmd && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+
+    // Cmd+S = Save project
+    if (cmd && (e.key === 's' || e.key === 'S') && !e.shiftKey) {
+        e.preventDefault();
+        saveProject();
+        return;
+    }
+
+    // Cmd+D = Merge (join)
+    if (cmd && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (srcSel.length >= 2) doMerge('src');
+        else if (editSel.length >= 2) doMerge('edit');
+        return;
+    }
+
+    // Cmd+X = Split
+    if (cmd && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        if (srcSel.length === 1) doSplit('src', srcSel[0]);
+        else if (editSel.length === 1) doSplit('edit', editSel[0]);
+        return;
+    }
+
+    // Cmd+N = New subtitle
+    if (cmd && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        createSubtitle();
+        return;
+    }
+
+    // Cmd+I = Toggle AI sidebar
+    if (cmd && (e.key === 'i' || e.key === 'I')) {
+        e.preventDefault();
+        toggleAI();
+        return;
+    }
+
+    // Cmd+A = Select all visible
+    if (cmd && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        if (activePanel === 'src') {
+            srcSel = [];
+            for (let i = 0; i < src.length; i++) {
+                if (srcFilterFav && !src[i].fav) continue;
+                srcSel.push(i);
+            }
+            if (srcSel.length) lastSrcClick = srcSel[srcSel.length - 1];
+        } else {
+            editSel = [];
+            for (let i = 0; i < edit.length; i++) editSel.push(i);
+            if (editSel.length) lastEditClick = editSel[editSel.length - 1];
+        }
+        updateSelUI(activePanel); updateMergeBtns();
+        return;
+    }
+
+    // Delete/Backspace = remove from edit or source
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (editSel.length > 0 && activePanel === 'edit') {
+            e.preventDefault();
+            if (editPlayActive) stopEditPlay();
+            pushHistory();
+            const sorted = [...editSel].sort((a, b) => b - a);
+            sorted.forEach(i => edit.splice(i, 1));
+            editSel = [];
+            renderEdit(); renderSrc();
+            return;
+        } else if (srcSel.length > 0 && activePanel === 'src') {
+            e.preventDefault();
+            if (sourceVideo && !sourceVideo.paused) sourceVideo.pause();
+            if (editPlayActive) stopEditPlay();
+            pushHistory();
+            const sorted = [...srcSel].sort((a, b) => b - a);
+            sorted.forEach(i => src.splice(i, 1));
+            srcSel = [];
+            renderSrc(); renderEdit();
+            return;
+        }
+    }
+
+    // Shift+S = toggle fav on selected source subtitles
+    if (e.shiftKey && !cmd && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (srcSel.length > 0 && activePanel === 'src') {
+            pushHistory();
+            srcSel.forEach(i => { src[i].fav = !src[i].fav; });
+            renderSrc();
+        }
+        return;
+    }
+
+    // Space = play/pause
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (editPlayActive && editVideo) {
+            editVideo.paused ? editVideo.play() : editVideo.pause();
+        } else if (sourceVideo) {
+            sourceVideo.paused ? sourceVideo.play() : sourceVideo.pause();
+        }
+        return;
+    }
+
+    // Shift+ArrowRight = add selected source to edit
+    if (e.key === 'ArrowRight' && e.shiftKey && !cmd) {
+        e.preventDefault();
+        if (srcSel.length > 0 && activePanel === 'src') {
+            const sorted = [...srcSel].sort((a, b) => a - b);
+            sorted.forEach(i => addToEdit(i));
+        }
+        return;
+    }
+
+    // Shift+ArrowUp = extend selection up
+    if (e.key === 'ArrowUp' && e.shiftKey && !cmd) {
+        e.preventDefault();
+        extendSelection(activePanel, -1);
+        return;
+    }
+
+    // Shift+ArrowDown = extend selection down
+    if (e.key === 'ArrowDown' && e.shiftKey && !cmd) {
+        e.preventDefault();
+        extendSelection(activePanel, 1);
+        return;
+    }
+
+    // ArrowUp = move cursor up
+    if (e.key === 'ArrowUp' && !e.shiftKey && !cmd) {
+        e.preventDefault();
+        moveCursor(activePanel, -1);
+        return;
+    }
+
+    // ArrowDown = move cursor down
+    if (e.key === 'ArrowDown' && !e.shiftKey && !cmd) {
+        e.preventDefault();
+        moveCursor(activePanel, 1);
+        return;
+    }
+
+    // ArrowLeft = seek source -5s (no shift)
+    if (e.key === 'ArrowLeft' && !e.shiftKey) {
+        e.preventDefault();
+        if (sourceVideo) sourceVideo.currentTime = Math.max(0, sourceVideo.currentTime - 5);
+        return;
+    }
+
+    // ArrowRight = seek source +5s (no shift)
+    if (e.key === 'ArrowRight' && !e.shiftKey) {
+        e.preventDefault();
+        if (sourceVideo) sourceVideo.currentTime = Math.min(sourceVideo.duration, sourceVideo.currentTime + 5);
+        return;
+    }
+
+    // Escape
+    if (e.key === 'Escape') {
+        if (splitActive) cancelSplit();
+        else if (aiOpen) toggleAI();
+        else clearSel();
+        return;
+    }
+});
+
+// ════════════════════════════════════════════════
+// EXPORTS
+// ════════════════════════════════════════════════
+function exportXML() {
+    if (!edit.length) return;
+    const fps = 25, sr = 48000, mn = mediaName || 'media.mp4';
+    let rp = 0;
+    const clips = edit.map((s, i) => {
+        const d = s.end - s.start;
+        const c = { name: `Clip ${i + 1}`, start: s.start, end: s.end, dur: d, ri: rp, ro: rp + d };
+        rp += d; return c;
+    });
+    const tf = Math.ceil(rp * fps);
+    const f = s => Math.round(s * fps);
+    const fd = f(mediaDur || rp + 3600);
+    const vc = clips.map((c, i) => `
+                    <clipitem id="clipitem-${i + 1}">
+                        <name>${c.name}</name><duration>${f(c.dur)}</duration>
+                        <rate><timebase>${fps}</timebase><ntsc>FALSE</ntsc></rate>
+                        <start>${f(c.ri)}</start><end>${f(c.ro)}</end>
+                        <in>${f(c.start)}</in><out>${f(c.end)}</out>
+                        <file id="file-1"><name>${escXml(mn)}</name><pathurl>file://localhost/${escXml(mn)}</pathurl>
+                            <rate><timebase>${fps}</timebase><ntsc>FALSE</ntsc></rate><duration>${fd}</duration>
+                            <media><video><samplecharacteristics><width>1920</width><height>1080</height></samplecharacteristics></video>
+                            <audio><samplecharacteristics><depth>16</depth><samplerate>${sr}</samplerate></samplecharacteristics></audio></media>
+                        </file>
+                    </clipitem>`).join('\n');
+    const ac = clips.map((c, i) => `
+                    <clipitem id="clipitem-audio-${i + 1}">
+                        <name>${c.name}</name><duration>${f(c.dur)}</duration>
+                        <rate><timebase>${fps}</timebase><ntsc>FALSE</ntsc></rate>
+                        <start>${f(c.ri)}</start><end>${f(c.ro)}</end>
+                        <in>${f(c.start)}</in><out>${f(c.end)}</out>
+                        <file id="file-1"/>
+                    </clipitem>`).join('\n');
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+    <sequence><name>Text2Edit Export</name><duration>${tf}</duration>
+        <rate><timebase>${fps}</timebase><ntsc>FALSE</ntsc></rate>
+        <media>
+            <video><format><samplecharacteristics><width>1920</width><height>1080</height></samplecharacteristics></format>
+                <track>${vc}\n                </track></video>
+            <audio><format><samplecharacteristics><depth>16</depth><samplerate>${sr}</samplerate></samplecharacteristics></format>
+                <track>${ac}\n                </track></audio>
+        </media>
+    </sequence>
+</xmeml>`;
+    dlFile(xml, 'text2edit_export.xml', 'application/xml');
+}
+
+function exportEDL() {
+    if (!edit.length) return;
+    const fps = 25, mn = mediaName || 'media.mp4';
+    const tc = s => {
+        const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sc = Math.floor(s % 60), fr = Math.floor((s % 1) * fps);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sc).padStart(2, '0')}:${String(fr).padStart(2, '0')}`;
+    };
+    let edl = `TITLE: Text2Edit Export\nFCM: NON-DROP FRAME\n\n`;
+    let rp = 0;
+    edit.forEach((s, i) => {
+        const en = String(i + 1).padStart(3, '0');
+        const si = tc(s.start), so = tc(s.end), ri = tc(rp);
+        rp += s.end - s.start;
+        edl += `${en}  ${'AX'.padEnd(8)} AA/V  C        ${si} ${so} ${ri} ${tc(rp)}\n`;
+        edl += `* FROM CLIP NAME: ${mn}\n* COMMENT: ${s.text.substring(0, 60)}\n\n`;
+    });
+    dlFile(edl, 'text2edit_export.edl', 'text/plain');
+}
+
+function exportSRT() {
+    if (!edit.length) return;
+    let srt = '', t = 0;
+    edit.forEach((s, i) => {
+        const dur = s.end - s.start;
+        srt += `${i + 1}\n${fmtSrtTC(t)} --> ${fmtSrtTC(t + dur)}\n${s.text}\n\n`;
+        t += dur;
+    });
+    dlFile(srt, 'text2edit_export.srt', 'text/plain');
+}
+
+function exportSrcSRT() {
+    if (!src.length) return;
+    let indices;
+    if (srcSel.length > 0) {
+        indices = [...srcSel].sort((a, b) => a - b);
+    } else if (srcFilterFav) {
+        indices = src.map((s, i) => s.fav ? i : -1).filter(i => i >= 0);
+    } else {
+        indices = src.map((_, i) => i);
+    }
+    if (!indices.length) return;
+    let srt = '';
+    indices.forEach((idx, n) => {
+        const s = src[idx];
+        srt += `${n + 1}\n${fmtSrtTC(s.start)} --> ${fmtSrtTC(s.end)}\n${s.text}\n\n`;
+    });
+    const name = (mediaName ? mediaName.replace(/\.[^.]+$/, '') : 'fuente') + '_fuente.srt';
+    dlFile(srt, name, 'text/plain');
+}
+
+function exportFavSRT() {
+    const favs = src.filter(s => s.fav);
+    if (!favs.length) return;
+    let srt = '';
+    favs.forEach((s, n) => {
+        srt += `${n + 1}\n${fmtSrtTC(s.start)} --> ${fmtSrtTC(s.end)}\n${s.text}\n\n`;
+    });
+    const name = (mediaName ? mediaName.replace(/\.[^.]+$/, '') : 'fuente') + '_favoritos.srt';
+    dlFile(srt, name, 'text/plain');
+}
+
+function exportTXT() {
+    if (!edit.length) return;
+    let txt = '', t = 0;
+    edit.forEach(s => {
+        const dur = s.end - s.start;
+        txt += `[${fmtTCFull(t)} -> ${fmtTCFull(t + dur)}] ${s.text}\n`;
+        t += dur;
+    });
+    dlFile(txt, 'text2edit_export.txt', 'text/plain');
+}
+
+function dlFile(content, name, mime) {
+    const b = new Blob([content], { type: mime + ';charset=utf-8' });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement('a'); a.href = u; a.download = name;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(u);
+}
+
+// ════════════════════════════════════════════════
+// AI: API KEY
+// ════════════════════════════════════════════════
+function getApiKey() { return localStorage.getItem('t2e_openai_key') || ''; }
+
+function saveApiKey() {
+    const key = document.getElementById('ai-api-key').value.trim();
+    if (key) {
+        localStorage.setItem('t2e_openai_key', key);
+        document.getElementById('ai-status').textContent = 'Clau guardada ✓';
+        document.getElementById('ai-status').style.color = 'var(--green)';
+    } else {
+        localStorage.removeItem('t2e_openai_key');
+        document.getElementById('ai-status').textContent = 'Clau eliminada';
+        document.getElementById('ai-status').style.color = 'var(--text-muted)';
+    }
+    updateAIButtons();
+}
+
+function initApiKey() {
+    const key = getApiKey();
+    if (key) {
+        document.getElementById('ai-api-key').value = key;
+        document.getElementById('ai-status').textContent = 'Clau configurada ✓';
+        document.getElementById('ai-status').style.color = 'var(--green)';
+    }
+}
+
+// ════════════════════════════════════════════════
+// AI: SIDEBAR TOGGLE + TABS
+// ════════════════════════════════════════════════
+function toggleAI() {
+    aiOpen = !aiOpen;
+    document.getElementById('panel-ai').classList.toggle('open', aiOpen);
+    document.getElementById('btn-ai').classList.toggle('btn-accent', aiOpen);
+    if (aiOpen) updateAIButtons();
+}
+
+function switchAITab(tab) {
+    aiTab = tab;
+    document.querySelectorAll('.ai-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('ai-tab-correct').classList.toggle('hidden', tab !== 'correct');
+    document.getElementById('ai-tab-chat').classList.toggle('hidden', tab !== 'chat');
+}
+
+function updateAIButtons() {
+    const hasKey = !!getApiKey();
+    const hasSrc = src.length > 0;
+    document.getElementById('btn-correct-sel').disabled = !hasKey || !hasSrc;
+    document.getElementById('btn-correct-all').disabled = !hasKey || !hasSrc;
+}
+
+// ════════════════════════════════════════════════
+// AI: OPENAI API
+// ════════════════════════════════════════════════
+async function callOpenAI(messages, options = {}) {
+    const key = getApiKey();
+    if (!key) { alert('Configura la clau API primer'); return null; }
+    const body = {
+        model: options.model || 'gpt-4o-mini',
+        messages: messages,
+        temperature: options.temperature !== undefined ? options.temperature : 0.3,
+    };
+    if (options.max_tokens) body.max_tokens = options.max_tokens;
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(`API error ${resp.status}: ${err}`);
+    }
+    const data = await resp.json();
+    return data.choices[0].message.content;
+}
+
+// ════════════════════════════════════════════════
+// AI: CORRECTION
+// ════════════════════════════════════════════════
+async function correctSelected() {
+    const indices = srcSel.length > 0 ? [...srcSel].sort((a, b) => a - b) : [];
+    if (!indices.length) { alert('Selecciona subtitols primer'); return; }
+    await runCorrection(indices);
+}
+
+async function correctAll() {
+    await runCorrection(src.map((_, i) => i));
+}
+
+let aiCorrecting = false;
+async function runCorrection(indices) {
+    if (aiCorrecting) return;
+    aiCorrecting = true;
+    const diffList = document.getElementById('ai-diff-list');
+    diffList.innerHTML = '<div class="empty"><p>Corregint... ⏳</p></div>';
+    document.getElementById('ai-diff-actions').classList.add('hidden');
+    const BATCH = 30;
+    const allResults = [];
+    try {
+        for (let b = 0; b < indices.length; b += BATCH) {
+            const batch = indices.slice(b, b + BATCH);
+            const numbered = batch.map(i => `[${i}] ${src[i].text}`).join('\n');
+            const messages = [
+                { role: 'system', content: `Ets un corrector de català. Corregeix NOMÉS errors d'ortografia, accents, gramàtica i puntuació. NO canviïs el significat, NO reformulis, NO afegeixis ni eliminis paraules. Respon en format JSON: un array d'objectes amb "idx" (número del subtítol) i "text" (text corregit). Inclou NOMÉS els subtítols que has canviat. Si no hi ha canvis, retorna [].` },
+                { role: 'user', content: `Corregeix aquests subtítols en català:\n\n${numbered}` }
+            ];
+            const response = await callOpenAI(messages, { temperature: 0.2 });
+            if (!response) { aiCorrecting = false; return; }
+            let json = response.trim();
+            if (json.startsWith('```')) json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+            const corrections = JSON.parse(json);
+            allResults.push(...corrections);
+        }
+        pendingCorrections = allResults
+            .filter(c => typeof c.idx === 'number' && c.idx < src.length && c.text && c.text.trim() !== src[c.idx].text.trim())
+            .map(c => ({ idx: c.idx, original: src[c.idx].text, corrected: c.text.trim() }));
+        renderDiffList();
+    } catch (err) {
+        diffList.innerHTML = `<div class="empty"><p>Error: ${esc(err.message)}</p></div>`;
+    } finally {
+        aiCorrecting = false;
+    }
+}
+
+function renderDiffList() {
+    const diffList = document.getElementById('ai-diff-list');
+    if (!pendingCorrections.length) {
+        diffList.innerHTML = '<div class="empty"><p>Cap canvi detectat ✓</p></div>';
+        document.getElementById('ai-diff-actions').classList.add('hidden');
+        return;
+    }
+    document.getElementById('ai-diff-actions').classList.remove('hidden');
+    diffList.innerHTML = pendingCorrections.map((c, ci) => `
+        <div class="ai-diff-row" data-ci="${ci}">
+            <div class="diff-idx">#${c.idx + 1}</div>
+            <div class="diff-original">${esc(c.original)}</div>
+            <div class="diff-corrected">${esc(c.corrected)}</div>
+            <div class="diff-btns">
+                <button class="btn btn-sm" onclick="acceptCorrection(${ci})" style="color:var(--green)">&#10003; Acceptar</button>
+                <button class="btn btn-sm" onclick="rejectCorrection(${ci})" style="color:var(--red)">&#x2715; Rebutjar</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function acceptCorrection(ci) {
+    const c = pendingCorrections[ci];
+    if (!c) return;
+    pushHistory();
+    src[c.idx].text = c.corrected;
+    edit.forEach(e => { if (e.sourceId === src[c.idx].id && e.text === c.original) e.text = c.corrected; });
+    pendingCorrections.splice(ci, 1);
+    renderSrc(); renderEdit(); renderDiffList();
+}
+
+function rejectCorrection(ci) {
+    pendingCorrections.splice(ci, 1);
+    renderDiffList();
+}
+
+function acceptAllCorrections() {
+    if (!pendingCorrections.length) return;
+    pushHistory();
+    pendingCorrections.forEach(c => {
+        src[c.idx].text = c.corrected;
+        edit.forEach(e => { if (e.sourceId === src[c.idx].id && e.text === c.original) e.text = c.corrected; });
+    });
+    pendingCorrections = [];
+    renderSrc(); renderEdit(); renderDiffList();
+}
+
+function rejectAllCorrections() {
+    pendingCorrections = [];
+    renderDiffList();
+}
+
+// ════════════════════════════════════════════════
+// AI: CHAT
+// ════════════════════════════════════════════════
+function buildSubtitleContext() {
+    return src.map((s, i) => `[${i + 1}] [${fmtTC(s.start)}-${fmtTC(s.end)}] ${s.text}`).join('\n');
+}
+
+async function sendChat() {
+    const input = document.getElementById('ai-chat-input');
+    const question = input.value.trim();
+    if (!question) return;
+    if (!getApiKey()) { alert('Configura la clau API primer'); return; }
+    input.value = '';
+    appendChatMsg('user', question);
+    const loadingId = appendChatMsg('loading', 'Pensant...');
+    try {
+        const ctx = buildSubtitleContext();
+        const messages = [
+            { role: 'system', content: `Ets un assistent que ajuda a treballar amb subtítols d'una transcripció d'entrevista en català. Aquí tens tots els subtítols amb els seus números i timestamps:\n\n${ctx}\n\nRespon en català. Quan referencïis subtítols, indica el número i el timestamp. Sigues concís i directe.` }
+        ];
+        const recent = chatHistory.slice(-20);
+        messages.push(...recent);
+        messages.push({ role: 'user', content: question });
+        const response = await callOpenAI(messages, { temperature: 0.5, max_tokens: 1000 });
+        removeChatMsg(loadingId);
+        if (response) {
+            appendChatMsg('assistant', response);
+            chatHistory.push({ role: 'user', content: question });
+            chatHistory.push({ role: 'assistant', content: response });
+        }
+    } catch (err) {
+        removeChatMsg(loadingId);
+        appendChatMsg('system', 'Error: ' + err.message);
+    }
+}
+
+function appendChatMsg(type, text) {
+    const container = document.getElementById('ai-chat-messages');
+    const id = 'chat-msg-' + (++chatMsgCounter);
+    const div = document.createElement('div');
+    div.id = id;
+    div.className = 'ai-msg ai-msg-' + type;
+    div.textContent = text;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return id;
+}
+
+function removeChatMsg(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+// ════════════════════════════════════════════════
+// INIT AI
+// ════════════════════════════════════════════════
+initApiKey();
+</script>
+</body>
+</html>

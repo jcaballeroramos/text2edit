@@ -2451,14 +2451,24 @@ async function runCorrection(indices) {
             ];
             const response = await callClaude(messages, { temperature: 0.2 });
             if (!response) { aiCorrecting = false; return; }
+            console.log('[AI] Raw response:', response);
             let json = response.trim();
-            if (json.startsWith('```')) json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-            const corrections = JSON.parse(json);
+            // Strip markdown code fences if present
+            const fenceMatch = json.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+            if (fenceMatch) json = fenceMatch[1].trim();
+            // Try to find JSON array in response
+            const arrMatch = json.match(/\[[\s\S]*\]/);
+            if (!arrMatch) { console.warn('[AI] No JSON array found in response:', json); continue; }
+            const corrections = JSON.parse(arrMatch[0]);
+            console.log('[AI] Parsed corrections:', corrections);
             allResults.push(...corrections);
         }
+        console.log('[AI] All results before filter:', JSON.stringify(allResults));
         pendingCorrections = allResults
-            .filter(c => typeof c.idx === 'number' && c.idx < src.length && c.text && c.text.trim() !== src[c.idx].text.trim())
+            .map(c => ({ ...c, idx: parseInt(c.idx, 10) }))
+            .filter(c => !isNaN(c.idx) && c.idx >= 0 && c.idx < src.length && c.text && c.text.trim() !== src[c.idx].text.trim())
             .map(c => ({ idx: c.idx, original: src[c.idx].text, corrected: c.text.trim() }));
+        console.log('[AI] Pending corrections after filter:', JSON.stringify(pendingCorrections));
         renderDiffList();
     } catch (err) {
         diffList.innerHTML = `<div class="empty"><p>Error: ${esc(err.message)}</p></div>`;

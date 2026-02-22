@@ -219,9 +219,9 @@
 
         /* ── PANEL TOGGLE ── */
         .panel-toggle{display:flex;gap:2px;align-items:center}
-        .panel-toggle .pt-btn{width:24px;height:20px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:9px;display:inline-flex;align-items:center;justify-content:center;transition:all .12s;padding:0}
+        .panel-toggle .pt-btn{width:28px;height:28px;border:1px solid var(--border-light);border-radius:6px;background:var(--surface2);color:var(--text-dim);cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;transition:all .12s;padding:0;font-family:var(--sans);font-weight:500}
         .panel-toggle .pt-btn:hover{background:var(--border);color:var(--text)}
-        .panel-toggle .pt-btn.active{background:var(--surface2);color:var(--text);border-color:var(--text-muted)}
+        .panel-toggle .pt-btn.active{background:var(--border);color:var(--text);border-color:var(--text-muted)}
 
         /* ── MODAL ── */
         .modal-overlay{position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -349,7 +349,6 @@
         <div class="topbar-sep"></div>
         <button class="btn" id="btn-ai" onclick="toggleAI()" title="Panel AI &#8984;I">&#9733; IA</button>
         <button class="btn" id="btn-theme" onclick="toggleTheme()" title="Modo claro/oscuro">&#127769;</button>
-        <span style="font-size:9px;color:var(--text-muted);font-family:var(--mono)" id="user-display"></span>
         <button class="btn" id="btn-logout" onclick="doLogout()">Salir</button>
     </div>
 </div>
@@ -2742,7 +2741,6 @@ function doLogin() {
         sessionStorage.setItem('t2e_auth', 'true');
         sessionStorage.setItem('t2e_user', u);
         document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('user-display').textContent = u;
         document.getElementById('login-error').textContent = '';
     } else {
         document.getElementById('login-error').textContent = 'Usuario o contrase\u00f1a incorrectos';
@@ -2756,7 +2754,6 @@ function doLogout() {
 function checkAuth() {
     if (sessionStorage.getItem('t2e_auth') === 'true') {
         document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('user-display').textContent = sessionStorage.getItem('t2e_user') || '';
         return true;
     }
     return false;

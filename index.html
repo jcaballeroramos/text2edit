@@ -532,6 +532,8 @@ let mediaDur = 0;
 let isVideo = false;
 let srcTickId = null;
 let editTickId = null;
+let editRAFId = null;
+let editSeeking = false;
 
 // Playback
 let editPlayActive = false;
@@ -1327,21 +1329,30 @@ function toggleEditPlay() {
     if (editPlayActive) {
         editVideo.pause();
         editPlayActive = false;
+        if (editRAFId) { cancelAnimationFrame(editRAFId); editRAFId = null; }
         document.getElementById('ec-play').innerHTML = '&#9654;';
         document.getElementById('ec-play').classList.remove('active');
         return;
     }
     editPlayActive = true;
+    editSeeking = false;
     if (editPlayIdx < 0 || editPlayIdx >= edit.length) editPlayIdx = 0;
     document.getElementById('ec-play').innerHTML = '&#10074;&#10074;';
     document.getElementById('ec-play').classList.add('active');
-    editVideo.currentTime = edit[editPlayIdx].start;
-    editVideo.play();
+    const seg = edit[editPlayIdx];
+    if (seg.type === 'gap') {
+        seg._gapStart = Date.now();
+    } else {
+        editVideo.currentTime = seg.start;
+        editVideo.play();
+    }
     startTlAnimation();
+    editRAFLoop();
 }
 
 function stopEditPlay() {
-    editPlayActive = false; editPlayIdx = -1;
+    editPlayActive = false; editPlayIdx = -1; editSeeking = false;
+    if (editRAFId) { cancelAnimationFrame(editRAFId); editRAFId = null; }
     if (editVideo) editVideo.pause();
     document.getElementById('ec-play').innerHTML = '&#9654;';
     document.getElementById('ec-play').classList.remove('active');
@@ -1353,8 +1364,36 @@ function stopEditPlay() {
     stopTlAnimation();
 }
 
+function editRAFLoop() {
+    if (!editPlayActive) return;
+    editTick();
+    editRAFId = requestAnimationFrame(editRAFLoop);
+}
+
+function editSeekTo(idx) {
+    if (!editVideo || idx >= edit.length) { stopEditPlay(); return; }
+    editPlayIdx = idx;
+    const seg = edit[idx];
+    if (seg.type === 'gap') {
+        editVideo.pause();
+        seg._gapStart = Date.now();
+        return;
+    }
+    editSeeking = true;
+    editVideo.pause();
+    editVideo.currentTime = seg.start;
+    const onSeeked = () => {
+        editVideo.removeEventListener('seeked', onSeeked);
+        if (!editPlayActive) return;
+        editSeeking = false;
+        editVideo.play();
+    };
+    editVideo.addEventListener('seeked', onSeeked);
+}
+
 function editTick() {
     if (!editPlayActive || editPlayIdx < 0 || editPlayIdx >= edit.length) return;
+    if (editSeeking) return; // wait for seek to finish
     const seg = edit[editPlayIdx];
 
     // Handle gap clips: wait for duration then advance
@@ -1363,11 +1402,7 @@ function editTick() {
         const gapDur = (seg.end - seg.start) * 1000;
         if (Date.now() - seg._gapStart >= gapDur) {
             delete seg._gapStart;
-            editPlayIdx++;
-            if (editPlayIdx < edit.length) {
-                const next = edit[editPlayIdx];
-                if (next.type !== 'gap' && editVideo) { editVideo.currentTime = next.start; editVideo.play(); }
-            } else { stopEditPlay(); }
+            editSeekTo(editPlayIdx + 1);
         }
         return;
     }
@@ -1375,6 +1410,7 @@ function editTick() {
     if (!editVideo) return;
     const t = editVideo.currentTime;
 
+    // Highlight current row
     document.querySelectorAll('.e-row.playing').forEach(r => r.classList.remove('playing'));
     const row = document.querySelector(`.e-row[data-ei="${editPlayIdx}"]`);
     if (row) {
@@ -1387,6 +1423,7 @@ function editTick() {
         }
     }
 
+    // Update time display
     let elapsed = 0;
     for (let j = 0; j < editPlayIdx; j++) elapsed += (edit[j].end - edit[j].start);
     elapsed += Math.max(0, t - seg.start);
@@ -1396,19 +1433,9 @@ function editTick() {
     document.getElementById('edit-overlay-clip').textContent = `${editPlayIdx + 1}/${edit.length}`;
     document.getElementById('edit-overlay-time').textContent = fmtTC(elapsed);
 
+    // Advance to next clip when current ends
     if (t >= seg.end - 0.05) {
-        editPlayIdx++;
-        if (editPlayIdx < edit.length) {
-            const next = edit[editPlayIdx];
-            if (next.type === 'gap') {
-                editVideo.pause();
-                next._gapStart = Date.now();
-            } else {
-                editVideo.currentTime = next.start;
-            }
-        } else {
-            stopEditPlay();
-        }
+        editSeekTo(editPlayIdx + 1);
     }
 }
 
@@ -1873,9 +1900,8 @@ function loadMedia(file) {
 
     // Ticks
     if (srcTickId) clearInterval(srcTickId);
-    if (editTickId) clearInterval(editTickId);
     srcTickId = setInterval(sourceTick, 80);
-    editTickId = setInterval(editTick, 60);
+    // editTick now runs via requestAnimationFrame (editRAFLoop), no setInterval needed
 }
 
 // Speed buttons
@@ -2408,33 +2434,35 @@ async function callClaude(messages, options = {}) {
 // ════════════════════════════════════════════════
 // AI: CORRECTION
 // ════════════════════════════════════════════════
+// correctionMode: 'src' = correct source text, 'edit' = correct edit text directly
+let correctionMode = 'src';
+let correctionEditIndices = []; // for edit mode: which edit[] indices
+
 async function correctSelected() {
-    let indices = [];
     if (srcSel.length > 0) {
-        indices = [...srcSel].sort((a, b) => a - b);
+        correctionMode = 'src';
+        await runCorrection([...srcSel].sort((a, b) => a - b));
     } else if (editSel.length > 0) {
-        // Map edit selection to source indices
-        const srcIdxSet = new Set();
-        editSel.forEach(ei => {
-            const clip = edit[ei];
-            if (clip && clip.sourceId >= 0) {
-                const si = src.findIndex(s => s.id === clip.sourceId);
-                if (si >= 0) srcIdxSet.add(si);
-            }
-        });
-        indices = [...srcIdxSet].sort((a, b) => a - b);
+        correctionMode = 'edit';
+        const indices = [...editSel].filter(i => edit[i] && edit[i].type !== 'gap').sort((a, b) => a - b);
+        if (!indices.length) { showAlert('Selecciona subtítols primer'); return; }
+        correctionEditIndices = indices;
+        await runCorrectionEdit(indices);
+    } else {
+        showAlert('Selecciona subtítols primer (en transcripció o edició)');
     }
-    if (!indices.length) { showAlert('Selecciona subtitulos primero (en transcripci\u00f3n o edici\u00f3n)'); return; }
-    await runCorrection(indices);
 }
 
 async function correctAll() {
+    correctionMode = 'src';
     await runCorrection(src.map((_, i) => i));
 }
 
 let aiCorrecting = false;
+
+// Correct from SOURCE array (left panel selection)
 async function runCorrection(indices) {
-    if (aiCorrecting) return;
+    if (aiCorrecting || !indices.length) return;
     aiCorrecting = true;
     const diffList = document.getElementById('ai-diff-list');
     diffList.innerHTML = '<div class="empty"><p>Corregint... ⏳</p></div>';
@@ -2445,36 +2473,64 @@ async function runCorrection(indices) {
         for (let b = 0; b < indices.length; b += BATCH) {
             const batch = indices.slice(b, b + BATCH);
             const numbered = batch.map(i => `[${i}] ${src[i].text}`).join('\n');
-            const messages = [
-                { role: 'system', content: `Ets un corrector de català. Corregeix NOMÉS errors d'ortografia, accents, gramàtica i puntuació. NO canviïs el significat, NO reformulis, NO afegeixis ni eliminis paraules. Respon en format JSON: un array d'objectes amb "idx" (número del subtítol) i "text" (text corregit). Inclou NOMÉS els subtítols que has canviat. Si no hi ha canvis, retorna [].` },
-                { role: 'user', content: `Corregeix aquests subtítols en català:\n\n${numbered}` }
-            ];
-            const response = await callClaude(messages, { temperature: 0.2 });
-            if (!response) { aiCorrecting = false; return; }
-            console.log('[AI] Raw response:', response);
-            let json = response.trim();
-            // Strip markdown code fences if present
-            const fenceMatch = json.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-            if (fenceMatch) json = fenceMatch[1].trim();
-            // Try to find JSON array in response
-            const arrMatch = json.match(/\[[\s\S]*\]/);
-            if (!arrMatch) { console.warn('[AI] No JSON array found in response:', json); continue; }
-            const corrections = JSON.parse(arrMatch[0]);
-            console.log('[AI] Parsed corrections:', corrections);
-            allResults.push(...corrections);
+            const resp = await _callCorrectionAPI(numbered);
+            if (resp === null) { aiCorrecting = false; return; }
+            allResults.push(...resp);
         }
-        console.log('[AI] All results before filter:', JSON.stringify(allResults));
         pendingCorrections = allResults
             .map(c => ({ ...c, idx: parseInt(c.idx, 10) }))
             .filter(c => !isNaN(c.idx) && c.idx >= 0 && c.idx < src.length && c.text && c.text.trim() !== src[c.idx].text.trim())
             .map(c => ({ idx: c.idx, original: src[c.idx].text, corrected: c.text.trim() }));
-        console.log('[AI] Pending corrections after filter:', JSON.stringify(pendingCorrections));
         renderDiffList();
     } catch (err) {
         diffList.innerHTML = `<div class="empty"><p>Error: ${esc(err.message)}</p></div>`;
-    } finally {
-        aiCorrecting = false;
-    }
+    } finally { aiCorrecting = false; }
+}
+
+// Correct from EDIT array (right panel selection) — uses edit[].text directly
+async function runCorrectionEdit(indices) {
+    if (aiCorrecting || !indices.length) return;
+    aiCorrecting = true;
+    const diffList = document.getElementById('ai-diff-list');
+    diffList.innerHTML = '<div class="empty"><p>Corregint... ⏳</p></div>';
+    document.getElementById('ai-diff-actions').classList.add('hidden');
+    const BATCH = 30;
+    const allResults = [];
+    try {
+        for (let b = 0; b < indices.length; b += BATCH) {
+            const batch = indices.slice(b, b + BATCH);
+            const numbered = batch.map(i => `[${i}] ${edit[i].text}`).join('\n');
+            const resp = await _callCorrectionAPI(numbered);
+            if (resp === null) { aiCorrecting = false; return; }
+            allResults.push(...resp);
+        }
+        pendingCorrections = allResults
+            .map(c => ({ ...c, idx: parseInt(c.idx, 10) }))
+            .filter(c => !isNaN(c.idx) && c.idx >= 0 && c.idx < edit.length && c.text && c.text.trim() !== edit[c.idx].text.trim())
+            .map(c => ({ idx: c.idx, original: edit[c.idx].text, corrected: c.text.trim() }));
+        renderDiffList();
+    } catch (err) {
+        diffList.innerHTML = `<div class="empty"><p>Error: ${esc(err.message)}</p></div>`;
+    } finally { aiCorrecting = false; }
+}
+
+// Shared API call helper
+async function _callCorrectionAPI(numbered) {
+    const messages = [
+        { role: 'system', content: `Ets un corrector de català. Corregeix NOMÉS errors d'ortografia, accents, gramàtica i puntuació. NO canviïs el significat, NO reformulis, NO afegeixis ni eliminis paraules. Respon en format JSON: un array d'objectes amb "idx" (número del subtítol) i "text" (text corregit). Inclou NOMÉS els subtítols que has canviat. Si no hi ha canvis, retorna [].` },
+        { role: 'user', content: `Corregeix aquests subtítols en català:\n\n${numbered}` }
+    ];
+    const response = await callClaude(messages, { temperature: 0.2 });
+    if (!response) return null;
+    console.log('[AI] Raw response:', response);
+    let json = response.trim();
+    const fenceMatch = json.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+    if (fenceMatch) json = fenceMatch[1].trim();
+    const arrMatch = json.match(/\[[\s\S]*\]/);
+    if (!arrMatch) { console.warn('[AI] No JSON array in response:', json); return []; }
+    const corrections = JSON.parse(arrMatch[0]);
+    console.log('[AI] Parsed corrections:', corrections);
+    return corrections;
 }
 
 function renderDiffList() {
@@ -2502,8 +2558,19 @@ function acceptCorrection(ci) {
     const c = pendingCorrections[ci];
     if (!c) return;
     pushHistory();
-    src[c.idx].text = c.corrected;
-    edit.forEach(e => { if (e.sourceId === src[c.idx].id && e.text === c.original) e.text = c.corrected; });
+    if (correctionMode === 'edit') {
+        // Apply to edit[] directly, and also update src if linked
+        edit[c.idx].text = c.corrected;
+        const clip = edit[c.idx];
+        if (clip.sourceId >= 0) {
+            const si = src.findIndex(s => s.id === clip.sourceId);
+            if (si >= 0) src[si].text = c.corrected;
+        }
+    } else {
+        // Apply to src[], and propagate to matching edit entries
+        src[c.idx].text = c.corrected;
+        edit.forEach(e => { if (e.sourceId === src[c.idx].id && e.text === c.original) e.text = c.corrected; });
+    }
     pendingCorrections.splice(ci, 1);
     renderSrc(); renderEdit(); renderDiffList();
 }
@@ -2517,8 +2584,17 @@ function acceptAllCorrections() {
     if (!pendingCorrections.length) return;
     pushHistory();
     pendingCorrections.forEach(c => {
-        src[c.idx].text = c.corrected;
-        edit.forEach(e => { if (e.sourceId === src[c.idx].id && e.text === c.original) e.text = c.corrected; });
+        if (correctionMode === 'edit') {
+            edit[c.idx].text = c.corrected;
+            const clip = edit[c.idx];
+            if (clip.sourceId >= 0) {
+                const si = src.findIndex(s => s.id === clip.sourceId);
+                if (si >= 0) src[si].text = c.corrected;
+            }
+        } else {
+            src[c.idx].text = c.corrected;
+            edit.forEach(e => { if (e.sourceId === src[c.idx].id && e.text === c.original) e.text = c.corrected; });
+        }
     });
     pendingCorrections = [];
     renderSrc(); renderEdit(); renderDiffList();
